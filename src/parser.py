@@ -6,72 +6,90 @@ from bs4 import BeautifulSoup
 def format_pit_date(date_str, year="2025"):
     """Converts 'Sat Oct 18' + '2025' to '2025-10-18'"""
     try:
-        # Clean the string: Sat Oct 18 -> Oct 18
         clean_date = " ".join(date_str.split()[1:])
-        # Parse and add year
         date_obj = datetime.strptime(f"{clean_date} {year}", "%b %d %Y")
         return date_obj.strftime("%Y-%m-%d")
     except:
         return date_str
 
 def parse_schedules():
-    folder = 'scraped_schedules'
+    # --- PATH LOGIC: Find the project root from inside /src ---
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    input_folder = os.path.join(base_dir, 'scraped_schedules')
+    output_file = os.path.join(base_dir, 'data', 'compiled_schedule.csv')
+    
     master_data = []
+    domain = "https://pitfootball.com"
 
-    if not os.listdir(folder):
-        print("No files found in folder.")
+    if not os.path.exists(input_folder) or not os.listdir(input_folder):
+        print(f"No files found in {input_folder}")
         return
 
-    for filename in os.listdir(folder):
+    for filename in os.listdir(input_folder):
         if not filename.endswith('.html'):
             continue
             
+        # Updated splitting logic for filenames: SEASON_LEAGUE_DIVISION_TYPE.html
         parts = filename.replace('.html', '').split('_')
-        league = parts[0]
+        
+        # New: Extract season from the first part of the filename
+        season = parts[0]
+        league = parts[1]
         schedule_type = parts[-1] 
-        division = "_".join(parts[1:-1])
+        division = "_".join(parts[2:-1])
 
-        with open(os.path.join(folder, filename), 'r', encoding='utf-8') as f:
+        with open(os.path.join(input_folder, filename), 'r', encoding='utf-8') as f:
             soup = BeautifulSoup(f.read(), 'html.parser')
 
-        games = soup.select('section ul li.grid')
+        games = soup.select('li.grid')
         
         for game in games:
             try:
                 spans = game.select('span.text-xxs')
-                teams = game.select('a.text-xs b')
+                team_anchor_tags = game.find_all('a', href=lambda x: x and '/teams/' in x)
                 scores = game.select('span.text-xs.font-bold')
                 location = game.select_one('a.underline b')
+                summary_tag = game.find('a', class_='link')
 
                 raw_date = spans[0].get_text(strip=True) if len(spans) > 0 else "N/A"
-                formatted_date = format_pit_date(raw_date)
-
+                
                 game_info = {
-                    "Date": formatted_date,
+                    "Season": season, # Added Season column
+                    "Date": format_pit_date(raw_date),
                     "Time": spans[1].get_text(strip=True) if len(spans) > 1 else "N/A",
                     "League": league,
                     "Division": division,
                     "Type": schedule_type,
-                    "Away_Team": teams[0].get_text(strip=True) if len(teams) > 0 else "N/A",
+                    "Away_Team": team_anchor_tags[0].get_text(strip=True) if len(team_anchor_tags) > 0 else "N/A",
+                    "Away_Link": domain + team_anchor_tags[0]['href'] if len(team_anchor_tags) > 0 else "",
                     "Away_Score": scores[0].get_text(strip=True) if len(scores) > 0 else "",
-                    "Home_Team": teams[1].get_text(strip=True) if len(teams) > 1 else "N/A",
+                    "Home_Team": team_anchor_tags[1].get_text(strip=True) if len(team_anchor_tags) > 1 else "N/A",
+                    "Home_Link": domain + team_anchor_tags[1]['href'] if len(team_anchor_tags) > 1 else "",
                     "Home_Score": scores[1].get_text(strip=True) if len(scores) > 1 else "",
-                    "Location": location.get_text(strip=True) if location else "N/A"
+                    "Location": location.get_text(strip=True) if location else "N/A",
+                    "Summary": domain + summary_tag['href'] if summary_tag else ""
                 }
                 master_data.append(game_info)
             except Exception as e:
                 print(f"Error parsing game in {filename}: {e}")
 
-    # Sort by Date and Time
-    master_data.sort(key=lambda x: (x['Date'], x['Time']))
+    if not master_data:
+        print("No game data extracted.")
+        return
 
-    with open('data/compiled_schedule.csv', 'w', newline='', encoding='utf-8') as f:
+    # Sort by Season (descending), then Date and Time
+    master_data.sort(key=lambda x: (x['Season'], x['Date'], x['Time']), reverse=True)
+
+    # Ensure the /data directory exists in the root
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    
+    with open(output_file, 'w', newline='', encoding='utf-8') as f:
         keys = master_data[0].keys()
         dict_writer = csv.DictWriter(f, fieldnames=keys)
         dict_writer.writeheader()
         dict_writer.writerows(master_data)
 
-    print(f"Compiled {len(master_data)} games into compiled_schedule.csv")
+    print(f"Compiled {len(master_data)} games into {output_file}")
 
 if __name__ == "__main__":
     parse_schedules()
