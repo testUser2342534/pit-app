@@ -31,4 +31,4 @@ if df is not None:
     # Show the table
     st.dataframe(df, use_container_width=True, hide_index=True)
 else:
-    st.error("The schedule data file was not found. Please run the scraper or check the 'data'
+    st.error("The schedule data file was not found. Please run the scraper or check the 'data' folder.")
