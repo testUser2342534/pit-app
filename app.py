@@ -59,7 +59,7 @@ def load_data(filename):
                     # Update score string to be clean integers
                     score_display = f"{a_score} - {h_score}"
                 except:
-                    score_display = "None"
+                    score_display = None
 
             # Update the Link columns to include the display text after a #
             row['Away_Link_Display'] = f"{row['Away_Link']}#{away_display}"
@@ -128,7 +128,7 @@ if df is not None:
                 help="Winning teams are marked with a 🏆"
             ),
             "Summary": st.column_config.LinkColumn(
-                "Boxscore", 
+                "Summary", 
                 display_text="View Summary"
             ),
             # Hide all original data columns to keep the UI and Export clean
