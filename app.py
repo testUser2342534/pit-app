@@ -12,7 +12,7 @@ def get_season_mapping():
     mapping = {}
     for f in files:
         fname = os.path.basename(f)
-        # Convert 'schedule_Fall_2026.csv' -> 'Fall 2026'
+      
         display_name = fname.replace(".csv", "").replace("_", " ")
         mapping[display_name] = fname
     return mapping
@@ -104,29 +104,30 @@ if df is not None:
     st.dataframe(
         filtered_df,
         column_config={
-            "Away_Team": st.column_config.LinkColumn(
-                "Away Team", 
-                url_template=filtered_df["Away_Link"]
+            "Away_Link": st.column_config.LinkColumn(
+                "Away Team",
+                display_text=r"^.*$", # Use regex to show the text in the cell
             ),
-            "Home_Team": st.column_config.LinkColumn(
-                "Home Team", 
-                url_template=filtered_df["Home_Link"]
+            "Home_Link": st.column_config.LinkColumn(
+                "Home Team",
+                display_text=r"^.*$",
             ),
             "Score": st.column_config.TextColumn(
                 "Score", 
                 help="🏆 indicates the winner"
             ),
             "Summary": st.column_config.LinkColumn(
-                "Summary", 
+                "Boxscore", 
                 display_text="View Summary"
             ),
-            # Hide raw utility columns from UI, Export, and Eye Icon
-            "Away_Link": None,
-            "Home_Link": None,
+            # Hide these columns
+            "Away_Team": None,
+            "Home_Team": None,
             "Away_Score": None,
             "Home_Score": None
         },
-        column_order=view_columns,
+        # Reorder so the Link columns appear where the Team names used to be
+        column_order=("Date", "Time", "Away_Link", "Score", "Home_Link", "Location", "League", "Division", "Summary"),
         use_container_width=True, 
         hide_index=True
     )
