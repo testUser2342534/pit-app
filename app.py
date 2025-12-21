@@ -50,7 +50,7 @@ def load_data(filename):
                     
                     # Update names with trophies
                     if a_score > h_score:
-                        away_display = f"🏆 {away_display}"
+                        away_display = f"{away_display} 🏆"
                     elif h_score > a_score:
                         home_display = f"{home_display} 🏆"
                     
