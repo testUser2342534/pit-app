@@ -1,7 +1,3 @@
-Here is the updated file. I kept your existing # hyperlink logic exactly as it was and only modified the process_game_row function to ensure that missing scores display as None instead of nan - nan.
-
-Python
-
 import streamlit as st
 import pandas as pd
 import os
