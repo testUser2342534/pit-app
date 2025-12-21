@@ -36,33 +36,37 @@ def load_data(filename):
         for col in ['Location', 'Division']:
             df[col] = df[col].str.replace(r'\s+', ' ', regex=True).str.strip()
 
-        # --- 4. Winner & Link Logic ---
+        # --- 4. Winner, Score, and Label Logic ---
         def process_game_row(row):
-            # Default display names
-            away_display = str(row['Away_Team'])
-            home_display = str(row['Home_Team'])
-            score_display = f"{row['Away_Score']} - {row['Home_Score']}"
+            away_name = str(row['Away_Team'])
+            home_name = str(row['Home_Team'])
             
-            try:
-                if not pd.isna(row['Away_Score']) and not pd.isna(row['Home_Score']):
+            # Handle empty/missing scores
+            if pd.isna(row['Away_Score']) or pd.isna(row['Home_Score']):
+                row['Final_Score'] = "None"
+                row['Away_Label'] = away_name
+                row['Home_Label'] = home_name
+            else:
+                try:
                     a_score = int(float(row['Away_Score']))
                     h_score = int(float(row['Home_Score']))
+                    row['Final_Score'] = f"{a_score} - {h_score}"
                     
-                    # Update names with trophies
+                    # Apply trophy to the winning team's label
                     if a_score > h_score:
-                        away_display = f"{away_display} 🏆"
+                        row['Away_Label'] = f"{away_name} 🏆"
+                        row['Home_Label'] = home_name
                     elif h_score > a_score:
-                        home_display = f"{home_display} 🏆"
-                    
-                    # Update score string to be clean integers
-                    score_display = f"{a_score} - {h_score}"
-            except:
-                pass
-
-            # Update the Link columns to include the display text after a #
-            row['Away_Link_Display'] = f"{row['Away_Link']}#{away_display}"
-            row['Home_Link_Display'] = f"{row['Home_Link']}#{home_display}"
-            row['Final_Score'] = score_display
+                        row['Away_Label'] = away_name
+                        row['Home_Label'] = f"{home_name} 🏆"
+                    else:
+                        row['Away_Label'] = away_name
+                        row['Home_Label'] = home_name
+                except:
+                    row['Final_Score'] = "None"
+                    row['Away_Label'] = away_name
+                    row['Home_Label'] = home_name
+            
             return row
 
         df = df.apply(process_game_row, axis=1)
@@ -107,20 +111,20 @@ if df is not None:
             (filtered_df['Home_Team'].isin(selected_teams))
         ]
 
-    # --- Data Grid ---
-    # We display 'Away_Link_Display' but it will show as 'Away Team'
-    view_columns = ["Date", "Time", "Away_Link_Display", "Final_Score", "Home_Link_Display", "Location", "League", "Division", "Summary"]
+    # --- Data Grid Configuration ---
+    # We map the LinkColumn to the URL but display the Label (with the trophy)
+    view_columns = ["Date", "Time", "Away_Link", "Final_Score", "Home_Link", "Location", "League", "Division", "Summary"]
 
     st.dataframe(
         filtered_df,
         column_config={
-            "Away_Link_Display": st.column_config.LinkColumn(
+            "Away_Link": st.column_config.LinkColumn(
                 "Away Team",
-                display_text=r"#(.+)$" 
+                display_text=filtered_df["Away_Label"] # Uses the trophy label
             ),
-            "Home_Link_Display": st.column_config.LinkColumn(
+            "Home_Link": st.column_config.LinkColumn(
                 "Home Team",
-                display_text=r"#(.+)$"
+                display_text=filtered_df["Home_Label"] # Uses the trophy label
             ),
             "Final_Score": st.column_config.TextColumn(
                 "Score", 
@@ -130,9 +134,9 @@ if df is not None:
                 "Boxscore", 
                 display_text="View Summary"
             ),
-            # Hide all original data columns to keep the UI and Export clean
+            # Hide all utility and original data columns
             "Away_Team": None, "Home_Team": None, "Away_Score": None, "Home_Score": None,
-            "Away_Link": None, "Home_Link": None, "Final_Score": "Score"
+            "Away_Label": None, "Home_Label": None, "Final_Score": "Score"
         },
         column_order=view_columns,
         use_container_width=True, 
