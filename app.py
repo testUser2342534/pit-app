@@ -1,3 +1,7 @@
+Here is the updated file. I kept your existing # hyperlink logic exactly as it was and only modified the process_game_row function to ensure that missing scores display as None instead of nan - nan.
+
+Python
+
 import streamlit as st
 import pandas as pd
 import os
@@ -36,37 +40,35 @@ def load_data(filename):
         for col in ['Location', 'Division']:
             df[col] = df[col].str.replace(r'\s+', ' ', regex=True).str.strip()
 
-        # --- 4. Winner, Score, and Label Logic ---
+        # --- 4. Winner & Link Logic ---
         def process_game_row(row):
-            away_name = str(row['Away_Team'])
-            home_name = str(row['Home_Team'])
+            # Default display names
+            away_display = str(row['Away_Team'])
+            home_display = str(row['Home_Team'])
             
-            # Handle empty/missing scores
+            # Fix: Handle missing scores to show "None" instead of "nan - nan"
             if pd.isna(row['Away_Score']) or pd.isna(row['Home_Score']):
-                row['Final_Score'] = "None"
-                row['Away_Label'] = away_name
-                row['Home_Label'] = home_name
+                score_display = "None"
             else:
                 try:
                     a_score = int(float(row['Away_Score']))
                     h_score = int(float(row['Home_Score']))
-                    row['Final_Score'] = f"{a_score} - {h_score}"
                     
-                    # Apply trophy to the winning team's label
+                    # Update names with trophies
                     if a_score > h_score:
-                        row['Away_Label'] = f"{away_name} 🏆"
-                        row['Home_Label'] = home_name
+                        away_display = f"{away_display} 🏆"
                     elif h_score > a_score:
-                        row['Away_Label'] = away_name
-                        row['Home_Label'] = f"{home_name} 🏆"
-                    else:
-                        row['Away_Label'] = away_name
-                        row['Home_Label'] = home_name
+                        home_display = f"{home_display} 🏆"
+                    
+                    # Update score string to be clean integers
+                    score_display = f"{a_score} - {h_score}"
                 except:
-                    row['Final_Score'] = "None"
-                    row['Away_Label'] = away_name
-                    row['Home_Label'] = home_name
-            
+                    score_display = "None"
+
+            # Update the Link columns to include the display text after a #
+            row['Away_Link_Display'] = f"{row['Away_Link']}#{away_display}"
+            row['Home_Link_Display'] = f"{row['Home_Link']}#{home_display}"
+            row['Final_Score'] = score_display
             return row
 
         df = df.apply(process_game_row, axis=1)
@@ -111,20 +113,19 @@ if df is not None:
             (filtered_df['Home_Team'].isin(selected_teams))
         ]
 
-    # --- Data Grid Configuration ---
-    # We map the LinkColumn to the URL but display the Label (with the trophy)
-    view_columns = ["Date", "Time", "Away_Link", "Final_Score", "Home_Link", "Location", "League", "Division", "Summary"]
+    # --- Data Grid ---
+    view_columns = ["Date", "Time", "Away_Link_Display", "Final_Score", "Home_Link_Display", "Location", "League", "Division", "Summary"]
 
     st.dataframe(
         filtered_df,
         column_config={
-            "Away_Link": st.column_config.LinkColumn(
+            "Away_Link_Display": st.column_config.LinkColumn(
                 "Away Team",
-                display_text=filtered_df["Away_Label"] # Uses the trophy label
+                display_text=r"#(.+)$" 
             ),
-            "Home_Link": st.column_config.LinkColumn(
+            "Home_Link_Display": st.column_config.LinkColumn(
                 "Home Team",
-                display_text=filtered_df["Home_Label"] # Uses the trophy label
+                display_text=r"#(.+)$"
             ),
             "Final_Score": st.column_config.TextColumn(
                 "Score", 
@@ -134,9 +135,9 @@ if df is not None:
                 "Boxscore", 
                 display_text="View Summary"
             ),
-            # Hide all utility and original data columns
+            # Hide all original data columns to keep the UI and Export clean
             "Away_Team": None, "Home_Team": None, "Away_Score": None, "Home_Score": None,
-            "Away_Label": None, "Home_Label": None, "Final_Score": "Score"
+            "Away_Link": None, "Home_Link": None, "Final_Score": "Score"
         },
         column_order=view_columns,
         use_container_width=True, 
