@@ -16,7 +16,7 @@ def parse_schedules():
     # --- PATH LOGIC: Find the project root from inside /src ---
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     input_folder = os.path.join(base_dir, 'scraped_schedules')
-    output_file = os.path.join(base_dir, 'data', 'compiled_schedule.csv')
+    output_file = os.path.join(base_dir, 'data', 'Fall_2025.csv')
     
     master_data = []
     domain = "https://pitfootball.com"
@@ -54,7 +54,6 @@ def parse_schedules():
                 raw_date = spans[0].get_text(strip=True) if len(spans) > 0 else "N/A"
                 
                 game_info = {
-                    "Season": season, # Added Season column
                     "Date": format_pit_date(raw_date),
                     "Time": spans[1].get_text(strip=True) if len(spans) > 1 else "N/A",
                     "League": league,

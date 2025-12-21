@@ -6,6 +6,8 @@ async def run_scraper():
     base_url = "https://pitfootball.com"
     start_url = f"{base_url}/league/pit-football/"
     
+    season_ids = ["F25"]
+    
     # Path setup
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     output_folder = os.path.join(base_dir, 'scraped_schedules')
@@ -31,7 +33,7 @@ async def run_scraper():
         # Get all Season IDs dynamically
         season_options = await page.locator('select[name="season_id"] option').all()
         ## season_ids = [await opt.get_attribute("value") for opt in season_options if await opt.get_attribute("value")]
-        season_ids = ["F25"]
+        
         for s_id in season_ids:
             print(f"\n🚀 STARTING SEASON: {s_id}")
             await page.select_option('select[name="season_id"]', value=s_id)
