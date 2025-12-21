@@ -42,9 +42,8 @@ def load_data(filename):
             away_display = str(row['Away_Team'])
             home_display = str(row['Home_Team'])
             
-            # Fix: Handle missing scores to show "None" instead of "nan - nan"
             if pd.isna(row['Away_Score']) or pd.isna(row['Home_Score']):
-                score_display = "None"
+                score_display = None
             else:
                 try:
                     a_score = int(float(row['Away_Score']))
