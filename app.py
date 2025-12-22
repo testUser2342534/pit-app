@@ -54,6 +54,7 @@ def load_data(filename, last_modified):
             away_display = str(row['Away_Team'])
             home_display = str(row['Home_Team'])
             
+            # Using actual None for the grayed-out "None" look
             if pd.isna(row['Away_Score']) or pd.isna(row['Home_Score']):
                 score_display = None
             else:
@@ -84,94 +85,4 @@ if not season_map:
     st.error("No schedule files found in the 'data/' directory.")
     st.stop()
 
-# Sorting Ranks
-season_order = {"Winter": 1, "Spring": 2, "Summer": 3, "Fall": 4}
-
-def sort_key(display_name):
-    parts = display_name.split()
-    if len(parts) >= 2:
-        season = parts[0]
-        try:
-            year = int(parts[1])
-        except ValueError:
-            year = 0
-        return (year, season_order.get(season, 0))
-    return (0, 0)
-
-sorted_seasons = sorted(list(season_map.keys()), key=sort_key, reverse=True)
-selected_display = st.sidebar.selectbox("Select Season:", sorted_seasons)
-
-# --- Automatic Refresh Logic ---
-# We get the file path and its last modified timestamp
-file_name = season_map[selected_display]
-file_path = os.path.join('data', file_name)
-mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
-
-# Passing mtime into the cached function ensures data updates when the file does
-df = load_data(file_name, mtime)
-
-if df is not None:
-    st.sidebar.header("Filters")
-    
-    # League Filter
-    leagues = ["All"] + sorted(df['League'].unique().tolist())
-    selected_league = st.sidebar.selectbox("League:", leagues)
-
-    # Division Filter
-    div_query = df.copy()
-    if selected_league != "All":
-        div_query = div_query[div_query['League'] == selected_league]
-    divisions = ["All"] + sorted(div_query['Division'].unique().tolist())
-    selected_div = st.sidebar.selectbox("Division:", divisions)
-
-    # Game Type Filter
-    type_options = {"All": "All", "Regular": "REG", "Playoffs": "PO"}
-    selected_type_label = st.sidebar.selectbox("Game Type:", list(type_options.keys()))
-    selected_type_val = type_options[selected_type_label]
-
-    # Team Filter
-    all_teams = sorted(list(set(df['Away_Team'].dropna()) | set(df['Home_Team'].dropna())))
-    selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams)
-
-    # --- Filtering Logic ---
-    filtered_df = df.copy()
-    if selected_league != "All":
-        filtered_df = filtered_df[filtered_df['League'] == selected_league]
-    if selected_div != "All":
-        filtered_df = filtered_df[filtered_df['Division'] == selected_div]
-    if selected_type_val != "All":
-        filtered_df = filtered_df[filtered_df['Type'] == selected_type_val]
-    if selected_teams:
-        filtered_df = filtered_df[
-            (filtered_df['Away_Team'].isin(selected_teams)) | 
-            (filtered_df['Home_Team'].isin(selected_teams))
-        ]
-
-    # --- Data Grid ---
-    view_columns = ["Date", "Time", "Away_Link_Display", "Final_Score", "Home_Link_Display", "Location", "League", "Division", "Type", "Summary"]
-
-    st.dataframe(
-        filtered_df,
-        column_config={
-            "Away_Link_Display": st.column_config.LinkColumn("Away Team", display_text=r"#(.+)$"),
-            "Home_Link_Display": st.column_config.LinkColumn("Home Team", display_text=r"#(.+)$"),
-            "Final_Score": st.column_config.TextColumn("Score", help="Winning teams are marked with a 🏆"),
-            "Summary": st.column_config.LinkColumn("Boxscore", display_text="View Summary"),
-            "Type": st.column_config.TextColumn("Type"),
-            "Away_Team": None, "Home_Team": None, "Away_Score": None, "Home_Score": None,
-            "Away_Link": None, "Home_Link": None, "Final_Score": "Score"
-        },
-        column_order=view_columns,
-        width="stretch",
-        hide_index=True
-    )
-    
-    st.caption(f"Showing {len(filtered_df)} games for {selected_display}")
-    
-    # Fail-safe refresh button hidden in an expander
-    with st.sidebar.expander("System Controls"):
-        if st.button("Manual Cache Clear"):
-            st.cache_data.clear()
-            st.rerun()
-else:
-    st.warning("Please ensure your CSV files are located in the 'data/' folder.")
+# Sorting R
