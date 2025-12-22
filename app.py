@@ -16,12 +16,14 @@ def get_season_mapping():
         mapping[display_name] = fname
     return mapping
 
-# Added hash_funcs to ensure the cache refreshes if the file itself changes
 @st.cache_data
-def load_data(filename):
+def load_data(filename, last_modified):
+    """
+    Loads and cleans data. The 'last_modified' argument ensures the 
+    cache refreshes automatically if the physical file changes.
+    """
     path = os.path.join('data', filename)
     if os.path.exists(path):
-        # We use copy() to ensure we aren't mutating cached data
         df = pd.read_csv(path).copy()
         
         # --- 1. Clean Location ---
@@ -52,7 +54,6 @@ def load_data(filename):
             away_display = str(row['Away_Team'])
             home_display = str(row['Home_Team'])
             
-            # Using actual None for the grayed-out "None" look
             if pd.isna(row['Away_Score']) or pd.isna(row['Home_Score']):
                 score_display = None
             else:
@@ -100,8 +101,14 @@ def sort_key(display_name):
 sorted_seasons = sorted(list(season_map.keys()), key=sort_key, reverse=True)
 selected_display = st.sidebar.selectbox("Select Season:", sorted_seasons)
 
-# Load the data specific to the selected file
-df = load_data(season_map[selected_display])
+# --- Automatic Refresh Logic ---
+# We get the file path and its last modified timestamp
+file_name = season_map[selected_display]
+file_path = os.path.join('data', file_name)
+mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
+
+# Passing mtime into the cached function ensures data updates when the file does
+df = load_data(file_name, mtime)
 
 if df is not None:
     st.sidebar.header("Filters")
@@ -161,9 +168,10 @@ if df is not None:
     
     st.caption(f"Showing {len(filtered_df)} games for {selected_display}")
     
-    # Manual Clear if data still looks wrong
-    if st.sidebar.button("Refresh Data"):
-        st.cache_data.clear()
-        st.rerun()
+    # Fail-safe refresh button hidden in an expander
+    with st.sidebar.expander("System Controls"):
+        if st.button("Manual Cache Clear"):
+            st.cache_data.clear()
+            st.rerun()
 else:
     st.warning("Please ensure your CSV files are located in the 'data/' folder.")
