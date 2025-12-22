@@ -31,17 +31,23 @@ def load_data(filename):
         df['Division'] = df['Division'].str.replace("_", " ", regex=False)
         df['Division'] = df['Division'].str.replace("Division", "", case=False, regex=False)
         df['Division'] = df['Division'].str.replace(r'\(.*?\)', '', regex=True)
+
+        # --- 3. Shorten Type ---
+        if 'Type' in df.columns:
+            df['Type'] = df['Type'].str.replace("REGULAR", "REG", case=False)
+            df['Type'] = df['Type'].str.replace("PLAYOFFS", "PO", case=False)
+            df['Type'] = df['Type'].str.replace("PLAYOFF", "PO", case=False)
         
-        # --- 3. Whitespace Cleanup ---
+        # --- 4. Whitespace Cleanup ---
         for col in ['Location', 'Division']:
             df[col] = df[col].str.replace(r'\s+', ' ', regex=True).str.strip()
 
-        # --- 4. Winner & Link Logic ---
+        # --- 5. Winner & Link Logic ---
         def process_game_row(row):
-            # Default display names
             away_display = str(row['Away_Team'])
             home_display = str(row['Home_Team'])
             
+            # Using Python None to ensure the grayed-out "None" look
             if pd.isna(row['Away_Score']) or pd.isna(row['Home_Score']):
                 score_display = None
             else:
@@ -49,18 +55,15 @@ def load_data(filename):
                     a_score = int(float(row['Away_Score']))
                     h_score = int(float(row['Home_Score']))
                     
-                    # Update names with trophies
                     if a_score > h_score:
                         away_display = f"{away_display} 🏆"
                     elif h_score > a_score:
                         home_display = f"{home_display} 🏆"
                     
-                    # Update score string to be clean integers
                     score_display = f"{a_score} - {h_score}"
                 except:
                     score_display = None
 
-            # Update the Link columns to include the display text after a #
             row['Away_Link_Display'] = f"{row['Away_Link']}#{away_display}"
             row['Home_Link_Display'] = f"{row['Home_Link']}#{home_display}"
             row['Final_Score'] = score_display
@@ -109,33 +112,22 @@ if df is not None:
         ]
 
     # --- Data Grid ---
-    view_columns = ["Date", "Time", "Away_Link_Display", "Final_Score", "Home_Link_Display", "Location", "League", "Division", "Summary"]
+    # Included 'Type' in view_columns and order
+    view_columns = ["Date", "Time", "Away_Link_Display", "Final_Score", "Home_Link_Display", "Location", "League", "Division", "Type", "Summary"]
 
     st.dataframe(
         filtered_df,
         column_config={
-            "Away_Link_Display": st.column_config.LinkColumn(
-                "Away Team",
-                display_text=r"#(.+)$" 
-            ),
-            "Home_Link_Display": st.column_config.LinkColumn(
-                "Home Team",
-                display_text=r"#(.+)$"
-            ),
-            "Final_Score": st.column_config.TextColumn(
-                "Score", 
-                help="Winning teams are marked with a 🏆"
-            ),
-            "Summary": st.column_config.LinkColumn(
-                "Summary", 
-                display_text="View Summary"
-            ),
-            # Hide all original data columns to keep the UI and Export clean
+            "Away_Link_Display": st.column_config.LinkColumn("Away Team", display_text=r"#(.+)$"),
+            "Home_Link_Display": st.column_config.LinkColumn("Home Team", display_text=r"#(.+)$"),
+            "Final_Score": st.column_config.TextColumn("Score", help="Winning teams are marked with a 🏆"),
+            "Summary": st.column_config.LinkColumn("Boxscore", display_text="View Summary"),
+            "Type": st.column_config.TextColumn("Type"),
             "Away_Team": None, "Home_Team": None, "Away_Score": None, "Home_Score": None,
             "Away_Link": None, "Home_Link": None, "Final_Score": "Score"
         },
         column_order=view_columns,
-        use_container_width=True, 
+        width="stretch", # Updated from use_container_width=True
         hide_index=True
     )
     
