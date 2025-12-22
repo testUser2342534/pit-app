@@ -16,11 +16,13 @@ def get_season_mapping():
         mapping[display_name] = fname
     return mapping
 
+# Added hash_funcs to ensure the cache refreshes if the file itself changes
 @st.cache_data
 def load_data(filename):
     path = os.path.join('data', filename)
     if os.path.exists(path):
-        df = pd.read_csv(path)
+        # We use copy() to ensure we aren't mutating cached data
+        df = pd.read_csv(path).copy()
         
         # --- 1. Clean Location ---
         remove_locs = ["- U of M Complex", "- Garden City Complex"]
@@ -35,9 +37,11 @@ def load_data(filename):
         # --- 3. Shorten Type for Table Display ---
         if 'Type' in df.columns:
             df['Type'] = df['Type'].str.strip().str.upper()
-            df['Type'] = df['Type'].str.replace("REGULAR", "REG", case=False)
-            df['Type'] = df['Type'].str.replace("PLAYOFFS", "PO", case=False)
-            df['Type'] = df['Type'].str.replace("PLAYOFF", "PO", case=False)
+            df['Type'] = df['Type'].replace({
+                "REGULAR": "REG", 
+                "PLAYOFFS": "PO", 
+                "PLAYOFF": "PO"
+            }, regex=True)
         
         # --- 4. Whitespace Cleanup ---
         for col in ['Location', 'Division']:
@@ -48,6 +52,7 @@ def load_data(filename):
             away_display = str(row['Away_Team'])
             home_display = str(row['Home_Team'])
             
+            # Using actual None for the grayed-out "None" look
             if pd.isna(row['Away_Score']) or pd.isna(row['Home_Score']):
                 score_display = None
             else:
@@ -78,7 +83,7 @@ if not season_map:
     st.error("No schedule files found in the 'data/' directory.")
     st.stop()
 
-# Custom Rank: Winter (4) is most recent, Fall (1) is oldest
+# Sorting Ranks
 season_order = {"Winter": 1, "Spring": 2, "Summer": 3, "Fall": 4}
 
 def sort_key(display_name):
@@ -94,10 +99,11 @@ def sort_key(display_name):
 
 sorted_seasons = sorted(list(season_map.keys()), key=sort_key, reverse=True)
 selected_display = st.sidebar.selectbox("Select Season:", sorted_seasons)
+
+# Load the data specific to the selected file
 df = load_data(season_map[selected_display])
 
 if df is not None:
-    # --- Sidebar Filters ---
     st.sidebar.header("Filters")
     
     # League Filter
@@ -111,7 +117,7 @@ if df is not None:
     divisions = ["All"] + sorted(div_query['Division'].unique().tolist())
     selected_div = st.sidebar.selectbox("Division:", divisions)
 
-    # Game Type Filter (Friendly labels mapped to data values)
+    # Game Type Filter
     type_options = {"All": "All", "Regular": "REG", "Playoffs": "PO"}
     selected_type_label = st.sidebar.selectbox("Game Type:", list(type_options.keys()))
     selected_type_val = type_options[selected_type_label]
@@ -154,5 +160,10 @@ if df is not None:
     )
     
     st.caption(f"Showing {len(filtered_df)} games for {selected_display}")
+    
+    # Manual Clear if data still looks wrong
+    if st.sidebar.button("Refresh Data"):
+        st.cache_data.clear()
+        st.rerun()
 else:
     st.warning("Please ensure your CSV files are located in the 'data/' folder.")
