@@ -78,7 +78,22 @@ if not season_map:
     st.error("No schedule files found in the 'data/' directory.")
     st.stop()
 
-selected_display = st.sidebar.selectbox("Select Season:", sorted(list(season_map.keys()), reverse=True))
+# Custom Rank: Winter (4) is most recent, Fall (1) is oldest
+season_order = {"Winter": 1, "Spring": 2, "Summer": 3, "Fall": 4}
+
+def sort_key(display_name):
+    parts = display_name.split()
+    if len(parts) >= 2:
+        season = parts[0]
+        try:
+            year = int(parts[1])
+        except ValueError:
+            year = 0
+        return (year, season_order.get(season, 0))
+    return (0, 0)
+
+sorted_seasons = sorted(list(season_map.keys()), key=sort_key, reverse=True)
+selected_display = st.sidebar.selectbox("Select Season:", sorted_seasons)
 df = load_data(season_map[selected_display])
 
 if df is not None:

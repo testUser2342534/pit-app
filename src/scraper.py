@@ -6,7 +6,7 @@ async def run_scraper():
     base_url = "https://pitfootball.com"
     start_url = f"{base_url}/league/pit-football/"
     
-    season_ids = ["F25"]
+    season_ids = ["S25"]
     
     # Path setup
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

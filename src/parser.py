@@ -16,7 +16,7 @@ def parse_schedules():
     # --- PATH LOGIC: Find the project root from inside /src ---
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     input_folder = os.path.join(base_dir, 'scraped_schedules')
-    output_file = os.path.join(base_dir, 'data', 'Fall_2025.csv')
+    output_file = os.path.join(base_dir, 'data', 'Summer_2025.csv')
     
     master_data = []
     domain = "https://pitfootball.com"
@@ -77,7 +77,7 @@ def parse_schedules():
         return
 
     # Sort by Season (descending), then Date and Time
-    master_data.sort(key=lambda x: (x['Season'], x['Date'], x['Time']), reverse=True)
+    master_data.sort(key=lambda x: (x['Date'], x['Time']), reverse=True)
 
     # Ensure the /data directory exists in the root
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
