@@ -1,5 +1,7 @@
 import os
 import csv
+import datetime
+import pytz # Make sure to add this to your requirements.txt
 from datetime import datetime
 from bs4 import BeautifulSoup
 
@@ -13,13 +15,18 @@ def format_pit_date(date_str, year="2025"):
         return date_str
 
 def parse_schedules():
-    # --- PATH LOGIC: Find the project root from inside /src ---
+    # --- PATH LOGIC ---
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     input_folder = os.path.join(base_dir, 'scraped_schedules')
-    output_file = os.path.join(base_dir, 'data', 'Summer_2025.csv')
+    output_file = os.path.join(base_dir, 'data', 'Fall_2025.csv')
     
     master_data = []
     domain = "https://pitfootball.com"
+
+    # Define Central Timezone
+    central_tz = pytz.timezone('US/Central')
+    # Get current time in Central and format it
+    sync_timestamp = datetime.now(central_tz).strftime('%Y-%m-%d %H:%M:%S')
 
     if not os.path.exists(input_folder) or not os.listdir(input_folder):
         print(f"No files found in {input_folder}")
@@ -29,10 +36,7 @@ def parse_schedules():
         if not filename.endswith('.html'):
             continue
             
-        # Updated splitting logic for filenames: SEASON_LEAGUE_DIVISION_TYPE.html
         parts = filename.replace('.html', '').split('_')
-        
-        # New: Extract season from the first part of the filename
         season = parts[0]
         league = parts[1]
         schedule_type = parts[-1] 
@@ -66,7 +70,8 @@ def parse_schedules():
                     "Home_Link": domain + team_anchor_tags[1]['href'] if len(team_anchor_tags) > 1 else "",
                     "Home_Score": scores[1].get_text(strip=True) if len(scores) > 1 else "",
                     "Location": location.get_text(strip=True) if location else "N/A",
-                    "Summary": domain + summary_tag['href'] if summary_tag else ""
+                    "Summary": domain + summary_tag['href'] if summary_tag else "",
+                    "Scraped_At": sync_timestamp  # <--- Added Hidden Column here
                 }
                 master_data.append(game_info)
             except Exception as e:
@@ -76,10 +81,9 @@ def parse_schedules():
         print("No game data extracted.")
         return
 
-    # Sort by Season (descending), then Date and Time
+    # Sort by Date and Time
     master_data.sort(key=lambda x: (x['Date'], x['Time']), reverse=True)
 
-    # Ensure the /data directory exists in the root
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
     with open(output_file, 'w', newline='', encoding='utf-8') as f:
@@ -88,7 +92,7 @@ def parse_schedules():
         dict_writer.writeheader()
         dict_writer.writerows(master_data)
 
-    print(f"Compiled {len(master_data)} games into {output_file}")
+    print(f"Compiled {len(master_data)} games into {output_file} at {sync_timestamp}")
 
 if __name__ == "__main__":
     parse_schedules()
