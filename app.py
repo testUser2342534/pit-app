@@ -78,6 +78,7 @@ def load_data(filename, last_modified):
         return df
     return None
 
+# --- Main UI Start ---
 st.title("🏈 PIT Football Schedule")
 
 season_map = get_season_mapping()
@@ -107,9 +108,10 @@ file_name = season_map[selected_display]
 file_path = os.path.join('data', file_name)
 mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
 
-# Convert timestamp to a readable string for the sidebar
+# Format and display the Last Updated note directly under the Title
 last_updated_dt = datetime.datetime.fromtimestamp(mtime)
-st.sidebar.caption(f"🕒 Last synced: {last_updated_dt.strftime('%b %d, %I:%M %p')}")
+st.markdown(f"**Last synced:** {last_updated_dt.strftime('%b %d, %I:%M %p')}")
+st.divider() # Adds a clean line between the header and the data
 
 df = load_data(file_name, mtime)
 
