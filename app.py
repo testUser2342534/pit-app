@@ -8,7 +8,6 @@ import datetime
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
 # --- CONFIGURATION ---
-# This is the specific file that is actively being updated by your scraper.
 SYNC_FILE = "Fall_2025.csv"
 
 def get_season_mapping():
@@ -72,25 +71,18 @@ if not season_map:
     st.error("No schedule files found in the 'data/' directory.")
     st.stop()
 
-# --- TIMESTAMP LOGIC (Always from SYNC_FILE) ---
+# --- TIMESTAMP LOGIC (Silent calculation) ---
 sync_path = os.path.join('data', SYNC_FILE)
 if os.path.exists(sync_path):
-    # Load just the timestamp from the active sync file
-    # We use nrows=1 to make this extremely fast
     sync_df = pd.read_csv(sync_path, nrows=1)
     if 'Scraped_At' in sync_df.columns:
         raw_time = sync_df['Scraped_At'].iloc[0]
         dt_obj = datetime.datetime.strptime(raw_time, '%Y-%m-%d %H:%M:%S')
-        st.markdown(f"**Live Sync Active:** {SYNC_FILE.replace('.csv', '').replace('_', ' ')}  \n"
-                    f"**Last synced:** {dt_obj.strftime('%b %d, %I:%M %p')} CST")
-    else:
-        st.markdown(f"**Status:** Syncing {SYNC_FILE} (Metadata missing)")
-else:
-    st.markdown(f"**Status:** Active sync file ({SYNC_FILE}) not found.")
+        st.markdown(f"**Last synced:** {dt_obj.strftime('%b %d, %I:%M %p')} CST")
 
 st.divider()
 
-# --- SIDEBAR (Selection Only) ---
+# --- SIDEBAR ---
 season_order = {"Winter": 1, "Spring": 2, "Summer": 3, "Fall": 4}
 def sort_key(name):
     p = name.split()
