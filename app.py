@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import glob
 import re
+import datetime
 
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
@@ -54,7 +55,6 @@ def load_data(filename, last_modified):
             away_display = str(row['Away_Team'])
             home_display = str(row['Home_Team'])
             
-            # Using actual None for the grayed-out "None" look
             if pd.isna(row['Away_Score']) or pd.isna(row['Home_Score']):
                 score_display = None
             else:
@@ -102,12 +102,15 @@ def sort_key(display_name):
 sorted_seasons = sorted(list(season_map.keys()), key=sort_key, reverse=True)
 selected_display = st.sidebar.selectbox("Select Season:", sorted_seasons)
 
-# --- Automatic Refresh Logic ---
+# --- Automatic Refresh & Timestamp Logic ---
 file_name = season_map[selected_display]
 file_path = os.path.join('data', file_name)
 mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
 
-# Passing mtime into the cached function ensures data updates when the file does
+# Convert timestamp to a readable string for the sidebar
+last_updated_dt = datetime.datetime.fromtimestamp(mtime)
+st.sidebar.caption(f"🕒 Last synced: {last_updated_dt.strftime('%b %d, %I:%M %p')}")
+
 df = load_data(file_name, mtime)
 
 if df is not None:

@@ -1,12 +1,21 @@
 import asyncio
 import os
 from playwright.async_api import async_playwright
+import shutil
+
 
 async def run_scraper():
     base_url = "https://pitfootball.com"
     start_url = f"{base_url}/league/pit-football/"
     
     season_ids = ["S25"]
+    html_dir = 'scraped_schedules'
+    if os.path.exists(html_dir):
+    # Remove the entire folder and its contents
+        shutil.rmtree(html_dir)
+
+    # Recreate the empty folder for the fresh scrape
+    os.makedirs(html_dir)
     
     # Path setup
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -22,7 +31,7 @@ async def run_scraper():
         ##    headless=True, 
         ##    args=["--disable-blink-features=AutomationControlled"]
         ##)
-        browser = await p.chromium.launch(headless=False, slow_mo=1000)
+        browser = await p.chromium.launch(headless=True, slow_mo=1000)
         context = await browser.new_context(user_agent=user_agent)
         page = await context.new_page()
         
