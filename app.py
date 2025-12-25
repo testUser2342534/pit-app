@@ -4,9 +4,12 @@ import os
 import glob
 import re
 import datetime
-import pytz # Standard library for timezone conversions
 
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
+
+# --- CONFIGURATION ---
+# This is the specific file that is actively being updated by your scraper.
+SYNC_FILE = "Fall_2025.csv"
 
 def get_season_mapping():
     """Maps clean season names to their actual CSV filenames."""
@@ -69,6 +72,24 @@ if not season_map:
     st.error("No schedule files found in the 'data/' directory.")
     st.stop()
 
+# --- TIMESTAMP LOGIC (Always from SYNC_FILE) ---
+sync_path = os.path.join('data', SYNC_FILE)
+if os.path.exists(sync_path):
+    # Load just the timestamp from the active sync file
+    # We use nrows=1 to make this extremely fast
+    sync_df = pd.read_csv(sync_path, nrows=1)
+    if 'Scraped_At' in sync_df.columns:
+        raw_time = sync_df['Scraped_At'].iloc[0]
+        dt_obj = datetime.datetime.strptime(raw_time, '%Y-%m-%d %H:%M:%S')
+        st.markdown(f"**Live Sync Active:** {SYNC_FILE.replace('.csv', '').replace('_', ' ')}  \n"
+                    f"**Last synced:** {dt_obj.strftime('%b %d, %I:%M %p')} CST")
+    else:
+        st.markdown(f"**Status:** Syncing {SYNC_FILE} (Metadata missing)")
+else:
+    st.markdown(f"**Status:** Active sync file ({SYNC_FILE}) not found.")
+
+st.divider()
+
 # --- SIDEBAR (Selection Only) ---
 season_order = {"Winter": 1, "Spring": 2, "Summer": 3, "Fall": 4}
 def sort_key(name):
@@ -76,25 +97,13 @@ def sort_key(name):
     return (int(p[1]), season_order.get(p[0], 0)) if len(p) >= 2 else (0,0)
 
 sorted_seasons = sorted(list(season_map.keys()), key=sort_key, reverse=True)
-selected_display = st.sidebar.selectbox("Select Season:", sorted_seasons)
+selected_display = st.sidebar.selectbox("Select Season to View:", sorted_seasons)
 
-# --- CALCULATE TIME (US/Central) & SHOW IN MAIN AREA ---
+# --- LOAD SELECTED DATA ---
 file_name = season_map[selected_display]
 file_path = os.path.join('data', file_name)
 mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
 
-# 1. Create a UTC datetime from the file timestamp
-utc_dt = datetime.datetime.fromtimestamp(mtime, tz=pytz.utc)
-# 2. Convert that UTC time to US/Central
-central_tz = pytz.timezone('US/Central')
-last_updated_dt = utc_dt.astimezone(central_tz)
-
-
-
-st.markdown(f"**Last synced:** {last_updated_dt.strftime('%b %d, %I:%M %p')} CST")
-st.divider()
-
-# --- LOAD DATA ---
 df = load_data(file_name, mtime)
 
 if df is not None:
@@ -131,7 +140,7 @@ if df is not None:
             "Summary": st.column_config.LinkColumn("Boxscore", display_text="View Summary"),
             "Type": st.column_config.TextColumn("Type"),
             "Away_Team": None, "Home_Team": None, "Away_Score": None, "Home_Score": None,
-            "Away_Link": None, "Home_Link": None
+            "Away_Link": None, "Home_Link": None, "Scraped_At": None
         },
         column_order=["Date", "Time", "Away_Link_Display", "Final_Score", "Home_Link_Display", "Location", "League", "Division", "Type", "Summary"],
         width="stretch", hide_index=True
