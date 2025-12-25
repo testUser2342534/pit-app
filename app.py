@@ -4,6 +4,7 @@ import os
 import glob
 import re
 import datetime
+import pytz # Standard library for timezone conversions
 
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
@@ -77,14 +78,20 @@ def sort_key(name):
 sorted_seasons = sorted(list(season_map.keys()), key=sort_key, reverse=True)
 selected_display = st.sidebar.selectbox("Select Season:", sorted_seasons)
 
-# --- CALCULATE TIME & SHOW IN MAIN AREA ---
+# --- CALCULATE TIME (US/Central) & SHOW IN MAIN AREA ---
 file_name = season_map[selected_display]
 file_path = os.path.join('data', file_name)
 mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
-last_updated_dt = datetime.datetime.fromtimestamp(mtime)
 
-# This line ensures it stays in the main body under the title
-st.markdown(f"**Last synced:** {last_updated_dt.strftime('%b %d, %I:%M %p')}")
+# 1. Create a UTC datetime from the file timestamp
+utc_dt = datetime.datetime.fromtimestamp(mtime, tz=pytz.utc)
+# 2. Convert that UTC time to US/Central
+central_tz = pytz.timezone('US/Central')
+last_updated_dt = utc_dt.astimezone(central_tz)
+
+
+
+st.markdown(f"**Last synced:** {last_updated_dt.strftime('%b %d, %I:%M %p')} CST")
 st.divider()
 
 # --- LOAD DATA ---
