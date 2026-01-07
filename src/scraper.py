@@ -8,7 +8,7 @@ async def run_scraper():
     base_url = "https://pitfootball.com"
     start_url = f"{base_url}/league/pit-football/"
     
-    season_ids = ["F25"]
+    season_ids = ["W26"]
     html_dir = 'scraped_schedules'
     if os.path.exists(html_dir):
     # Remove the entire folder and its contents

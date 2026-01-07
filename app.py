@@ -8,7 +8,7 @@ import datetime
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
 # --- CONFIGURATION ---
-SYNC_FILE = "Fall_2025.csv"
+SYNC_FILE = "Winter_2025.csv"
 
 def get_season_mapping():
     """Maps clean season names to their actual CSV filenames."""
