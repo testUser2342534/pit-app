@@ -36,6 +36,6 @@ jobs:
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
-          git add data/Fall_2025.csv
+          git add data/Winter_2026.csv
           git commit -m "Auto-update schedule: $(date)" || echo "No changes to commit"
           git push
