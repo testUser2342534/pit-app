@@ -183,9 +183,9 @@ if df is not None:
             st.rerun()
 
     with col2:
-        if st.button("Reset", type="secondary", use_container_width=True):
+        if st.button("Unsave", type="secondary", use_container_width=True):
             # ... (your existing reset logic) ...
-            st.session_state["ui_msg"] = ("Filters Reset", "↩️")
+            st.session_state["ui_msg"] = ("Saved filters have been cleared", "↩️")
             st.rerun()
 
 
