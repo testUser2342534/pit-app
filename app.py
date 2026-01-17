@@ -1,9 +1,12 @@
 import streamlit as st
+import extra_streamlit_components as stx
 import pandas as pd
 import os
 import glob
 import re
 import datetime
+
+ctx = stx.LocalStorageManager()
 
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
@@ -99,30 +102,70 @@ mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
 df = load_data(file_name, mtime)
 
 if df is not None:
-    # Sidebar Filters
-    st.sidebar.header("Filters")
-    leagues = ["All"] + sorted(df['League'].unique().tolist())
-    selected_league = st.sidebar.selectbox("League:", leagues)
+    # --- 1. PERSISTENCE LOGIC (Read from Browser) ---
+    # This checks for a saved dictionary in the user's browser
+    all_saved_data = ctx.get("pit_prefs") or {}
+    # Get the specific settings for the season currently selected in the sidebar
+    season_prefs = all_saved_data.get(selected_display, {})
 
+    st.sidebar.header("Filters")
+    
+    # --- 2. LEAGUE FILTER ---
+    leagues = ["All"] + sorted(df['League'].unique().tolist())
+    saved_league = season_prefs.get("league", "All")
+    # Determine the index: if the saved league exists in the list, use it; else 0 ("All")
+    l_idx = leagues.index(saved_league) if saved_league in leagues else 0
+    selected_league = st.sidebar.selectbox("League:", leagues, index=l_idx)
+
+    # --- 3. DIVISION FILTER ---
     div_query = df[df['League'] == selected_league] if selected_league != "All" else df
     divisions = ["All"] + sorted(div_query['Division'].unique().tolist())
-    selected_div = st.sidebar.selectbox("Division:", divisions)
+    saved_div = season_prefs.get("division", "All")
+    d_idx = divisions.index(saved_div) if saved_div in divisions else 0
+    selected_div = st.sidebar.selectbox("Division:", divisions, index=d_idx)
 
+    # --- 4. GAME TYPE FILTER ---
     type_map = {"All": "All", "Regular": "REG", "Playoffs": "PO"}
-    selected_type_val = type_map[st.sidebar.selectbox("Game Type:", list(type_map.keys()))]
+    type_options = list(type_map.keys())
+    saved_type_label = season_prefs.get("type_label", "All")
+    t_idx = type_options.index(saved_type_label) if saved_type_label in type_options else 0
+    
+    selected_type_label = st.sidebar.selectbox("Game Type:", type_options, index=t_idx)
+    selected_type_val = type_map[selected_type_label]
 
+    # --- 5. TEAMS FILTER ---
     all_teams = sorted(list(set(df['Away_Team'].dropna()) | set(df['Home_Team'].dropna())))
-    selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams)
+    saved_teams = season_prefs.get("teams", [])
+    # Ensure saved teams actually exist in the current season data
+    valid_saved_teams = [t for t in saved_teams if t in all_teams]
+    selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams, default=valid_saved_teams)
 
-    # Filter Logic
+    st.sidebar.divider()
+
+    # --- 6. SAVE BUTTON ---
+    if st.sidebar.button("💾 Save Selections"):
+        # We store the selections inside a key named after the current season
+        all_saved_data[selected_display] = {
+            "league": selected_league,
+            "division": selected_div,
+            "type_label": selected_type_label,
+            "teams": selected_teams
+        }
+        ctx.set("pit_prefs", all_saved_data)
+        st.toast(f"Filters saved for {selected_display}!", icon="✅")
+
+    # --- 7. FILTERING LOGIC (Your existing work) ---
     f_df = df.copy()
-    if selected_league != "All": f_df = f_df[f_df['League'] == selected_league]
-    if selected_div != "All": f_df = f_df[f_df['Division'] == selected_div]
-    if selected_type_val != "All": f_df = f_df[f_df['Type'] == selected_type_val]
+    if selected_league != "All": 
+        f_df = f_df[f_df['League'] == selected_league]
+    if selected_div != "All": 
+        f_df = f_df[f_df['Division'] == selected_div]
+    if selected_type_val != "All": 
+        f_df = f_df[f_df['Type'] == selected_type_val]
     if selected_teams:
         f_df = f_df[(f_df['Away_Team'].isin(selected_teams)) | (f_df['Home_Team'].isin(selected_teams))]
 
-    # Display Grid
+    # --- 8. DISPLAY GRID (Your existing work) ---
     st.dataframe(
         f_df,
         column_config={
