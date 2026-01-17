@@ -159,15 +159,20 @@ if df is not None:
     valid_saved_teams = [t for t in saved_teams if t in all_teams]
     selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams, default=valid_saved_teams)
 
-# --- 6. SAVE & CLEAR BUTTONS ---
+# --- 6. SAVE & RESET BUTTONS ---
     st.sidebar.markdown("---")
     
     # Visual Indicator Logic (survives the st.rerun)
     if "ui_msg" in st.session_state:
         msg, icon = st.session_state["ui_msg"]
-        st.sidebar.status(msg, state="complete", expanded=False)
-        # Clear it so it doesn't stay forever
+        # Use success for a clean, non-clickable banner
+        st.sidebar.success(f"{icon} {msg}")
+        
+        # Display briefly then clear and refresh
+        import time
+        time.sleep(1.5)
         del st.session_state["ui_msg"]
+        st.rerun()
 
     col1, col2 = st.sidebar.columns(2)
     
@@ -179,10 +184,14 @@ if df is not None:
                 "type_label": selected_type_label,
                 "teams": selected_teams
             }
+            # Set expiry for 1 year
             expiry = datetime.date.today() + datetime.timedelta(days=365)
             cookie_manager.set("pit_prefs", all_saved_data, expires_at=expiry)
             
-            # Set the indicator for the next run
+            # Give the browser a moment to write the cookie before rerunning
+            import time
+            time.sleep(1)
+            
             st.session_state["ui_msg"] = ("Settings Saved", "✅")
             st.rerun()
 
@@ -192,7 +201,10 @@ if df is not None:
                 del all_saved_data[selected_display]
                 cookie_manager.set("pit_prefs", all_saved_data)
                 
-                # Set the indicator for the next run
+                # Give the browser a moment to delete the cookie before rerunning
+                import time
+                time.sleep(1)
+                
                 st.session_state["ui_msg"] = ("Filters Reset", "↩️")
                 st.rerun()
 
