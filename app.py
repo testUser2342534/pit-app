@@ -3,8 +3,8 @@ import pandas as pd
 import extra_streamlit_components as stx
 import os
 import glob
-import re
 import datetime
+import time
 
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
@@ -24,14 +24,12 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 2. INITIALIZE COOKIE MANAGER ---
-# Using a key ensures the component stays active during script reruns
 cookie_manager = stx.CookieManager(key="mngr")
 
 # --- CONFIGURATION ---
 SYNC_FILE = "Winter_2026.csv"
 
 def get_season_mapping():
-    """Maps clean season names to their actual CSV filenames."""
     files = glob.glob("data/*.csv")
     mapping = {}
     for f in files:
@@ -46,7 +44,6 @@ def load_data(filename, last_modified):
     if os.path.exists(path):
         df = pd.read_csv(path).copy()
         
-        # --- Cleaning Logic ---
         remove_locs = ["- U of M Complex", "- Garden City Complex"]
         for text in remove_locs:
             df['Location'] = df['Location'].str.replace(text, "", case=False, regex=False)
@@ -102,7 +99,7 @@ if os.path.exists(sync_path):
 
 st.divider()
 
-# --- SIDEBAR ---
+# --- SIDEBAR SEASON SELECTOR ---
 season_order = {"Winter": 1, "Spring": 2, "Summer": 3, "Fall": 4}
 def sort_key(name):
     p = name.split()
@@ -111,19 +108,25 @@ def sort_key(name):
 sorted_seasons = sorted(list(season_map.keys()), key=sort_key, reverse=True)
 selected_display = st.sidebar.selectbox("Select Season to View:", sorted_seasons)
 
-# --- LOAD SELECTED DATA ---
+# --- DATA LOADING ---
 file_name = season_map[selected_display]
 file_path = os.path.join('data', file_name)
 mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
-
 df = load_data(file_name, mtime)
 
 if df is not None:
-    # Give the manager a moment to load from the browser
     if not cookie_manager:
         st.stop()
 
-    # --- 3. FETCH SAVED DATA ---
+    # --- INDICATOR LOGIC ---
+    if "ui_msg" in st.session_state:
+        msg, icon = st.session_state["ui_msg"]
+        st.sidebar.success(f"{icon} {msg}")
+        time.sleep(1.2)
+        del st.session_state["ui_msg"]
+        st.rerun()
+
+    # --- FETCH COOKIES ---
     all_saved_data = cookie_manager.get(cookie="pit_prefs")
     if not isinstance(all_saved_data, dict):
         all_saved_data = {}
@@ -132,20 +135,18 @@ if df is not None:
 
     st.sidebar.header("Filters")
     
-    # --- LEAGUE FILTER ---
+    # --- FILTERS ---
     leagues = ["All"] + sorted(df['League'].unique().tolist())
     saved_league = season_prefs.get("league", "All")
     l_idx = leagues.index(saved_league) if saved_league in leagues else 0
     selected_league = st.sidebar.selectbox("League:", leagues, index=l_idx)
 
-    # --- DIVISION FILTER ---
     div_query = df[df['League'] == selected_league] if selected_league != "All" else df
     divisions = ["All"] + sorted(div_query['Division'].unique().tolist())
     saved_div = season_prefs.get("division", "All")
     d_idx = divisions.index(saved_div) if saved_div in divisions else 0
     selected_div = st.sidebar.selectbox("Division:", divisions, index=d_idx)
 
-    # --- GAME TYPE FILTER ---
     type_map = {"All": "All", "Regular": "REG", "Playoffs": "PO"}
     type_options = list(type_map.keys())
     saved_type_label = season_prefs.get("type_label", "All")
@@ -153,7 +154,6 @@ if df is not None:
     selected_type_label = st.sidebar.selectbox("Game Type:", type_options, index=t_idx)
     selected_type_val = type_map[selected_type_label]
 
-    # --- TEAMS FILTER ---
     all_teams = sorted(list(set(df['Away_Team'].dropna()) | set(df['Home_Team'].dropna())))
     saved_teams = season_prefs.get("teams", [])
     valid_saved_teams = [t for t in saved_teams if t in all_teams]
@@ -180,21 +180,18 @@ if df is not None:
                 cookie_manager.set("pit_prefs", all_saved_data)
             # This clears the local variables so the widgets reset to "All" immediately
             season_prefs = {} 
-            st.session_state["ui_msg"] = ("Saved filters cleared", "↩️")
+            st.session_state["ui_msg"] = ("Saved Filters Cleared", "↩️")
             st.rerun()
 
-    # --- 7. FILTERING LOGIC ---
+    # --- FILTERING LOGIC ---
     f_df = df.copy()
-    if selected_league != "All": 
-        f_df = f_df[f_df['League'] == selected_league]
-    if selected_div != "All": 
-        f_df = f_df[f_df['Division'] == selected_div]
-    if selected_type_val != "All": 
-        f_df = f_df[f_df['Type'] == selected_type_val]
+    if selected_league != "All": f_df = f_df[f_df['League'] == selected_league]
+    if selected_div != "All": f_df = f_df[f_df['Division'] == selected_div]
+    if selected_type_val != "All": f_df = f_df[f_df['Type'] == selected_type_val]
     if selected_teams:
         f_df = f_df[(f_df['Away_Team'].isin(selected_teams)) | (f_df['Home_Team'].isin(selected_teams))]
 
-    # --- 8. RESTORED DISPLAY GRID ---
+    # --- DISPLAY GRID ---
     st.dataframe(
         f_df,
         column_config={
