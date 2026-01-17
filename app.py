@@ -162,7 +162,7 @@ if df is not None:
 # --- 6. SAVE & RESET BUTTONS ---
     st.sidebar.markdown("---")
     
-    # INDICATOR: Shows after rerun, then clears itself
+    # 1. Indicator logic (shows AFTER rerun if needed)
     if "ui_msg" in st.session_state:
         msg, icon = st.session_state["ui_msg"]
         if "Reset" in msg:
@@ -170,7 +170,8 @@ if df is not None:
         else:
             st.sidebar.success(f"{icon} {msg}")
         
-        time.sleep(1.5) # Second pause: Let the user read it
+        import time
+        time.sleep(1.2)
         del st.session_state["ui_msg"]
         st.rerun()
 
@@ -178,26 +179,38 @@ if df is not None:
     
     with col1:
         if st.button("Save Settings", type="primary", use_container_width=True):
-            all_saved_data[selected_display] = {
-                "league": selected_league, "division": selected_div,
-                "type_label": selected_type_label, "teams": selected_teams
-            }
-            cookie_manager.set("pit_prefs", all_saved_data, 
-                               expires_at=datetime.date.today() + datetime.timedelta(days=365))
+            # Display "Saving..." immediately
+            with st.sidebar.status("Saving...", expanded=False) as status:
+                all_saved_data[selected_display] = {
+                    "league": selected_league, 
+                    "division": selected_div,
+                    "type_label": selected_type_label, 
+                    "teams": selected_teams
+                }
+                expiry = datetime.date.today() + datetime.timedelta(days=365)
+                cookie_manager.set("pit_prefs", all_saved_data, expires_at=expiry)
+                
+                import time
+                time.sleep(1) # Visual pause to ensure cookie write
+                status.update(label="Saved!", state="complete")
             
-            time.sleep(1) # First pause: Let the browser write the cookie
             st.session_state["ui_msg"] = ("Settings Saved", "✅")
             st.rerun()
 
     with col2:
         if st.button("Reset", type="secondary", use_container_width=True):
-            if selected_display in all_saved_data:
-                del all_saved_data[selected_display]
-                cookie_manager.set("pit_prefs", all_saved_data)
+            # Display "Resetting..." immediately
+            with st.sidebar.status("Resetting...", expanded=False) as status:
+                if selected_display in all_saved_data:
+                    del all_saved_data[selected_display]
+                    cookie_manager.set("pit_prefs", all_saved_data)
                 
-                time.sleep(1) # First pause: Let the browser delete/update
-                st.session_state["ui_msg"] = ("Filters Reset", "↩️")
-                st.rerun()
+                import time
+                time.sleep(1) # Visual pause
+                status.update(label="Reset!", state="complete")
+
+            st.session_state["ui_msg"] = ("Filters Reset", "↩️")
+            st.rerun()
 
     # --- 7. FILTERING LOGIC ---
     f_df = df.copy()
