@@ -3,45 +3,33 @@ import pandas as pd
 import extra_streamlit_components as stx
 import os
 import glob
-import re
 import datetime
 
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
+# --- 1. CSS FOR CLEAN BUTTONS ---
 st.markdown("""
     <style>
-    /* Save Button - Primary Green */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32 !important;
         color: white !important;
-        border-radius: 4px;
         border: none;
     }
-
-    /* Clear Button - Secondary Neutral Gray */
     div.stButton > button[kind="secondary"] {
         background-color: #E0E0E0 !important;
         color: #424242 !important;
-        border-radius: 4px;
-        border: 1px solid #BDBDBD;
-    }
-    
-    /* Hover effects for a tactile feel */
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #1B5E20 !important;
-    }
-    div.stButton > button[kind="secondary"]:hover {
-        background-color: #D5D5D5 !important;
-        border-color: #9E9E9E;
     }
     </style>
     """, unsafe_allow_html=True)
+
+# --- 2. INITIALIZE COOKIE MANAGER ---
+# We give it a fixed key so it persists across script reruns
+cookie_manager = stx.CookieManager(key="mngr")
 
 # --- CONFIGURATION ---
 SYNC_FILE = "Winter_2026.csv"
 
 def get_season_mapping():
-    """Maps clean season names to their actual CSV filenames."""
     files = glob.glob("data/*.csv")
     mapping = {}
     for f in files:
@@ -56,181 +44,87 @@ def load_data(filename, last_modified):
     if os.path.exists(path):
         df = pd.read_csv(path).copy()
         
-        # --- Cleaning Logic ---
+        # Cleaning
         remove_locs = ["- U of M Complex", "- Garden City Complex"]
         for text in remove_locs:
             df['Location'] = df['Location'].str.replace(text, "", case=False, regex=False)
+        df['Division'] = df['Division'].str.replace("_", " ", regex=False).str.replace("Division", "", case=False)
         
-        df['Division'] = df['Division'].str.replace("_", " ", regex=False)
-        df['Division'] = df['Division'].str.replace("Division", "", case=False, regex=False)
-        df['Division'] = df['Division'].str.replace(r'\(.*?\)', '', regex=True)
-
         if 'Type' in df.columns:
-            df['Type'] = df['Type'].str.strip().str.upper()
-            df['Type'] = df['Type'].replace({"REGULAR": "REG", "PLAYOFFS": "PO", "PLAYOFF": "PO"}, regex=True)
-        
-        for col in ['Location', 'Division']:
-            df[col] = df[col].str.replace(r'\s+', ' ', regex=True).str.strip()
+            df['Type'] = df['Type'].str.strip().str.upper().replace({"REGULAR": "REG", "PLAYOFFS": "PO"}, regex=True)
 
-        def process_game_row(row):
-            away_display = str(row['Away_Team'])
-            home_display = str(row['Home_Team'])
-            if pd.isna(row['Away_Score']) or pd.isna(row['Home_Score']):
-                score_display = None
-            else:
-                try:
-                    a_score, h_score = int(float(row['Away_Score'])), int(float(row['Home_Score']))
-                    if a_score > h_score: away_display += " 🏆"
-                    elif h_score > a_score: home_display += " 🏆"
-                    score_display = f"{a_score} - {h_score}"
-                except: score_display = None
-
-            row['Away_Link_Display'] = f"{row['Away_Link']}#{away_display}"
-            row['Home_Link_Display'] = f"{row['Home_Link']}#{home_display}"
+        def process_row(row):
+            a_score, h_score = row.get('Away_Score'), row.get('Home_Score')
+            score_display = f"{int(a_score)} - {int(h_score)}" if pd.notna(a_score) else None
+            row['Away_Link_Display'] = f"{row['Away_Link']}#{row['Away_Team']}"
+            row['Home_Link_Display'] = f"{row['Home_Link']}#{row['Home_Team']}"
             row['Final_Score'] = score_display
             return row
 
-        return df.apply(process_game_row, axis=1)
+        return df.apply(process_row, axis=1)
     return None
 
-# --- MAIN AREA ---
 st.title("🏈 PIT Football Schedule")
-
 season_map = get_season_mapping()
-if not season_map:
-    st.error("No schedule files found in the 'data/' directory.")
-    st.stop()
+sorted_seasons = sorted(list(season_map.keys()), reverse=True)
+selected_display = st.sidebar.selectbox("Select Season:", sorted_seasons)
 
-# --- TIMESTAMP LOGIC ---
-sync_path = os.path.join('data', SYNC_FILE)
-if os.path.exists(sync_path):
-    sync_df = pd.read_csv(sync_path, nrows=1)
-    if 'Scraped_At' in sync_df.columns:
-        raw_time = sync_df['Scraped_At'].iloc[0]
-        dt_obj = datetime.datetime.strptime(raw_time, '%Y-%m-%d %H:%M:%S')
-        st.markdown(f"**Last synced:** {dt_obj.strftime('%b %d, %I:%M %p')} CST")
-
-st.divider()
-
-# --- SIDEBAR ---
-season_order = {"Winter": 1, "Spring": 2, "Summer": 3, "Fall": 4}
-def sort_key(name):
-    p = name.split()
-    return (int(p[1]), season_order.get(p[0], 0)) if len(p) >= 2 else (0,0)
-
-sorted_seasons = sorted(list(season_map.keys()), key=sort_key, reverse=True)
-selected_display = st.sidebar.selectbox("Select Season to View:", sorted_seasons)
-
-# --- LOAD SELECTED DATA ---
-file_name = season_map[selected_display]
-file_path = os.path.join('data', file_name)
-mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
-
-df = load_data(file_name, mtime)
+df = load_data(season_map[selected_display], 0)
 
 if df is not None:
-    # Initialize CookieManager
-    cookie_manager = stx.CookieManager()
+    # --- 3. FETCH SAVED DATA ---
+    # Give the manager a second to load from the browser
+    all_saved_data = cookie_manager.get(cookie="pit_prefs")
     
-    # Wait for cookie manager to be ready in the browser
-    if not cookie_manager:
-        st.stop()
-
-    # Get saved data from the cookie
-    all_saved_data = cookie_manager.get("pit_prefs") or {}
-    
-    # Ensure all_saved_data is a dict (sometimes returns string or None)
-    if not isinstance(all_saved_data, dict):
+    if all_saved_data is None:
         all_saved_data = {}
-
+    
     season_prefs = all_saved_data.get(selected_display, {})
 
     st.sidebar.header("Filters")
     
-    # --- 2. LEAGUE FILTER ---
     leagues = ["All"] + sorted(df['League'].unique().tolist())
     saved_league = season_prefs.get("league", "All")
     l_idx = leagues.index(saved_league) if saved_league in leagues else 0
     selected_league = st.sidebar.selectbox("League:", leagues, index=l_idx)
 
-    # --- 3. DIVISION FILTER ---
     div_query = df[df['League'] == selected_league] if selected_league != "All" else df
     divisions = ["All"] + sorted(div_query['Division'].unique().tolist())
     saved_div = season_prefs.get("division", "All")
     d_idx = divisions.index(saved_div) if saved_div in divisions else 0
     selected_div = st.sidebar.selectbox("Division:", divisions, index=d_idx)
 
-    # --- 4. GAME TYPE FILTER ---
-    type_map = {"All": "All", "Regular": "REG", "Playoffs": "PO"}
-    type_options = list(type_map.keys())
-    saved_type_label = season_prefs.get("type_label", "All")
-    t_idx = type_options.index(saved_type_label) if saved_type_label in type_options else 0
-    
-    selected_type_label = st.sidebar.selectbox("Game Type:", type_options, index=t_idx)
-    selected_type_val = type_map[selected_type_label]
-
-    # --- 5. TEAMS FILTER ---
     all_teams = sorted(list(set(df['Away_Team'].dropna()) | set(df['Home_Team'].dropna())))
     saved_teams = season_prefs.get("teams", [])
     valid_saved_teams = [t for t in saved_teams if t in all_teams]
     selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams, default=valid_saved_teams)
 
-    # st.sidebar.divider()
-
-    # --- 6. SAVE & CLEAR BUTTONS ---
-    st.sidebar.markdown("---") # Visual separator
-    
-    # Create two columns for a balanced look
+    st.sidebar.markdown("---")
     col1, col2 = st.sidebar.columns(2)
     
     with col1:
-        # 'primary' makes this button stand out as the main action
         if st.button("Save Settings", type="primary", use_container_width=True):
             all_saved_data[selected_display] = {
                 "league": selected_league,
                 "division": selected_div,
-                "type_label": selected_type_label,
                 "teams": selected_teams
             }
-            cookie_manager.set("pit_prefs", all_saved_data, key="save_cookies")
-            st.toast(f"Filters saved for {selected_display}!", icon="✅")
-            st.rerun()
+            # Set expiry for 1 year so it doesn't vanish
+            expiry = datetime.date.today() + datetime.timedelta(days=365)
+            cookie_manager.set("pit_prefs", all_saved_data, expires_at=expiry)
+            st.toast("Saved!")
 
     with col2:
-        # 'secondary' (default) keeps this one subtle
         if st.button("Clear", type="secondary", use_container_width=True):
             if selected_display in all_saved_data:
                 del all_saved_data[selected_display]
-                cookie_manager.set("pit_prefs", all_saved_data, key="clear_cookies")
-                st.toast("Filters reset to default!", icon="🧹")
+                cookie_manager.set("pit_prefs", all_saved_data)
                 st.rerun()
 
-    # --- 7. FILTERING LOGIC ---
+    # Filtering & Display
     f_df = df.copy()
-    if selected_league != "All": 
-        f_df = f_df[f_df['League'] == selected_league]
-    if selected_div != "All": 
-        f_df = f_df[f_df['Division'] == selected_div]
-    if selected_type_val != "All": 
-        f_df = f_df[f_df['Type'] == selected_type_val]
-    if selected_teams:
-        f_df = f_df[(f_df['Away_Team'].isin(selected_teams)) | (f_df['Home_Team'].isin(selected_teams))]
+    if selected_league != "All": f_df = f_df[f_df['League'] == selected_league]
+    if selected_div != "All": f_df = f_df[f_df['Division'] == selected_div]
+    if selected_teams: f_df = f_df[(f_df['Away_Team'].isin(selected_teams)) | (f_df['Home_Team'].isin(selected_teams))]
 
-    # --- 8. DISPLAY GRID ---
-    st.dataframe(
-        f_df,
-        column_config={
-            "Away_Link_Display": st.column_config.LinkColumn("Away Team", display_text=r"#(.+)$"),
-            "Home_Link_Display": st.column_config.LinkColumn("Home Team", display_text=r"#(.+)$"),
-            "Final_Score": st.column_config.TextColumn("Score", help="Winners have a 🏆"),
-            "Summary": st.column_config.LinkColumn("Boxscore", display_text="View Summary"),
-            "Type": st.column_config.TextColumn("Type"),
-            "Away_Team": None, "Home_Team": None, "Away_Score": None, "Home_Score": None,
-            "Away_Link": None, "Home_Link": None, "Scraped_At": None
-        },
-        column_order=["Date", "Time", "Away_Link_Display", "Final_Score", "Home_Link_Display", "Location", "League", "Division", "Type", "Summary"],
-        width="stretch", hide_index=True
-    )
-    st.caption(f"Showing {len(f_df)} games for {selected_display}")
-else:
-    st.warning("Data file not found.")
+    st.dataframe(f_df, hide_index=True)
