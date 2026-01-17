@@ -162,15 +162,15 @@ if df is not None:
 # --- 6. SAVE & RESET BUTTONS ---
     st.sidebar.markdown("---")
     
-    # Visual Indicator Logic (survives the st.rerun)
+    # INDICATOR: Shows after rerun, then clears itself
     if "ui_msg" in st.session_state:
         msg, icon = st.session_state["ui_msg"]
-        # Use success for a clean, non-clickable banner
-        st.sidebar.success(f"{icon} {msg}")
+        if "Reset" in msg:
+            st.sidebar.info(f"{icon} {msg}")
+        else:
+            st.sidebar.success(f"{icon} {msg}")
         
-        # Display briefly then clear and refresh
-        import time
-        time.sleep(1.5)
+        time.sleep(1.5) # Second pause: Let the user read it
         del st.session_state["ui_msg"]
         st.rerun()
 
@@ -179,19 +179,13 @@ if df is not None:
     with col1:
         if st.button("Save Settings", type="primary", use_container_width=True):
             all_saved_data[selected_display] = {
-                "league": selected_league,
-                "division": selected_div,
-                "type_label": selected_type_label,
-                "teams": selected_teams
+                "league": selected_league, "division": selected_div,
+                "type_label": selected_type_label, "teams": selected_teams
             }
-            # Set expiry for 1 year
-            expiry = datetime.date.today() + datetime.timedelta(days=365)
-            cookie_manager.set("pit_prefs", all_saved_data, expires_at=expiry)
+            cookie_manager.set("pit_prefs", all_saved_data, 
+                               expires_at=datetime.date.today() + datetime.timedelta(days=365))
             
-            # Give the browser a moment to write the cookie before rerunning
-            import time
-            time.sleep(1)
-            
+            time.sleep(1) # First pause: Let the browser write the cookie
             st.session_state["ui_msg"] = ("Settings Saved", "✅")
             st.rerun()
 
@@ -201,10 +195,7 @@ if df is not None:
                 del all_saved_data[selected_display]
                 cookie_manager.set("pit_prefs", all_saved_data)
                 
-                # Give the browser a moment to delete the cookie before rerunning
-                import time
-                time.sleep(1)
-                
+                time.sleep(1) # First pause: Let the browser delete/update
                 st.session_state["ui_msg"] = ("Filters Reset", "↩️")
                 st.rerun()
 
