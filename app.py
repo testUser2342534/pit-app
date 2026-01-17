@@ -5,7 +5,6 @@ import os
 import glob
 import re
 import datetime
-import urllib.parse  # Added for URL safe encoding
 
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
@@ -25,12 +24,14 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 2. INITIALIZE COOKIE MANAGER ---
+# Using a key ensures the component stays active during script reruns
 cookie_manager = stx.CookieManager(key="mngr")
 
 # --- CONFIGURATION ---
 SYNC_FILE = "Winter_2026.csv"
 
 def get_season_mapping():
+    """Maps clean season names to their actual CSV filenames."""
     files = glob.glob("data/*.csv")
     mapping = {}
     for f in files:
@@ -45,7 +46,7 @@ def load_data(filename, last_modified):
     if os.path.exists(path):
         df = pd.read_csv(path).copy()
         
-        # Cleaning Logic
+        # --- Cleaning Logic ---
         remove_locs = ["- U of M Complex", "- Garden City Complex"]
         for text in remove_locs:
             df['Location'] = df['Location'].str.replace(text, "", case=False, regex=False)
@@ -64,23 +65,19 @@ def load_data(filename, last_modified):
         def process_game_row(row):
             away_display = str(row['Away_Team'])
             home_display = str(row['Home_Team'])
-            
-            if not pd.isna(row['Away_Score']) and not pd.isna(row['Home_Score']):
+            if pd.isna(row['Away_Score']) or pd.isna(row['Home_Score']):
+                score_display = None
+            else:
                 try:
                     a_score, h_score = int(float(row['Away_Score'])), int(float(row['Home_Score']))
                     if a_score > h_score: away_display += " 🏆"
                     elif h_score > a_score: home_display += " 🏆"
-                    row['Final_Score'] = f"{a_score} - {h_score}"
-                except: row['Final_Score'] = None
-            else:
-                row['Final_Score'] = None
+                    score_display = f"{a_score} - {h_score}"
+                except: score_display = None
 
-            # URL Encode the display name so special characters (&, %, spaces) don't break the href
-            away_safe = urllib.parse.quote(away_display)
-            home_safe = urllib.parse.quote(home_display)
-
-            row['Away_Link_Display'] = f"{row['Away_Link']}#{away_safe}"
-            row['Home_Link_Display'] = f"{row['Home_Link']}#{home_safe}"
+            row['Away_Link_Display'] = f"{row['Away_Link']}#{away_display}"
+            row['Home_Link_Display'] = f"{row['Home_Link']}#{home_display}"
+            row['Final_Score'] = score_display
             return row
 
         return df.apply(process_game_row, axis=1)
@@ -94,6 +91,7 @@ if not season_map:
     st.error("No schedule files found in the 'data/' directory.")
     st.stop()
 
+# --- TIMESTAMP LOGIC ---
 sync_path = os.path.join('data', SYNC_FILE)
 if os.path.exists(sync_path):
     sync_df = pd.read_csv(sync_path, nrows=1)
@@ -113,6 +111,7 @@ def sort_key(name):
 sorted_seasons = sorted(list(season_map.keys()), key=sort_key, reverse=True)
 selected_display = st.sidebar.selectbox("Select Season to View:", sorted_seasons)
 
+# --- LOAD SELECTED DATA ---
 file_name = season_map[selected_display]
 file_path = os.path.join('data', file_name)
 mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
@@ -120,9 +119,11 @@ mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
 df = load_data(file_name, mtime)
 
 if df is not None:
+    # Give the manager a moment to load from the browser
     if not cookie_manager:
         st.stop()
 
+    # --- 3. FETCH SAVED DATA ---
     all_saved_data = cookie_manager.get(cookie="pit_prefs")
     if not isinstance(all_saved_data, dict):
         all_saved_data = {}
@@ -130,17 +131,21 @@ if df is not None:
     season_prefs = all_saved_data.get(selected_display, {})
 
     st.sidebar.header("Filters")
+    
+    # --- LEAGUE FILTER ---
     leagues = ["All"] + sorted(df['League'].unique().tolist())
     saved_league = season_prefs.get("league", "All")
     l_idx = leagues.index(saved_league) if saved_league in leagues else 0
     selected_league = st.sidebar.selectbox("League:", leagues, index=l_idx)
 
+    # --- DIVISION FILTER ---
     div_query = df[df['League'] == selected_league] if selected_league != "All" else df
     divisions = ["All"] + sorted(div_query['Division'].unique().tolist())
     saved_div = season_prefs.get("division", "All")
     d_idx = divisions.index(saved_div) if saved_div in divisions else 0
     selected_div = st.sidebar.selectbox("Division:", divisions, index=d_idx)
 
+    # --- GAME TYPE FILTER ---
     type_map = {"All": "All", "Regular": "REG", "Playoffs": "PO"}
     type_options = list(type_map.keys())
     saved_type_label = season_prefs.get("type_label", "All")
@@ -148,17 +153,19 @@ if df is not None:
     selected_type_label = st.sidebar.selectbox("Game Type:", type_options, index=t_idx)
     selected_type_val = type_map[selected_type_label]
 
+    # --- TEAMS FILTER ---
     all_teams = sorted(list(set(df['Away_Team'].dropna()) | set(df['Home_Team'].dropna())))
     saved_teams = season_prefs.get("teams", [])
     valid_saved_teams = [t for t in saved_teams if t in all_teams]
     selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams, default=valid_saved_teams)
 
-    # --- 6. SAVE & RESET BUTTONS ---
+# --- 6. SAVE & RESET BUTTONS ---
     st.sidebar.markdown("---")
     
+    # 1. Indicator logic (shows AFTER rerun if needed)
     if "ui_msg" in st.session_state:
         msg, icon = st.session_state["ui_msg"]
-        if "Reset" in msg or "Unsaved" in msg:
+        if "Reset" in msg:
             st.sidebar.info(f"{icon} {msg}")
         else:
             st.sidebar.success(f"{icon} {msg}")
@@ -172,6 +179,7 @@ if df is not None:
     
     with col1:
         if st.button("Save Settings", type="primary", use_container_width=True):
+            # Display "Saving..." immediately
             with st.sidebar.status("Saving...", expanded=False) as status:
                 all_saved_data[selected_display] = {
                     "league": selected_league, 
@@ -181,8 +189,9 @@ if df is not None:
                 }
                 expiry = datetime.date.today() + datetime.timedelta(days=365)
                 cookie_manager.set("pit_prefs", all_saved_data, expires_at=expiry)
+                
                 import time
-                time.sleep(1)
+                time.sleep(1) # Visual pause to ensure cookie write
                 status.update(label="Saved!", state="complete")
             
             st.session_state["ui_msg"] = ("Settings Saved", "✅")
@@ -190,15 +199,17 @@ if df is not None:
 
     with col2:
         if st.button("Unsave", type="secondary", use_container_width=True):
+            # Display "Resetting..." immediately
             with st.sidebar.status("Unsaving...", expanded=False) as status:
                 if selected_display in all_saved_data:
                     del all_saved_data[selected_display]
                     cookie_manager.set("pit_prefs", all_saved_data)
+                
                 import time
-                time.sleep(1)
+                time.sleep(1) # Visual pause
                 status.update(label="Unsaved!", state="complete")
 
-            st.session_state["ui_msg"] = ("Filters Unsaved", "↩️")
+            st.session_state["ui_msg"] = ("Filters Reset", "↩️")
             st.rerun()
 
     # --- 7. FILTERING LOGIC ---
@@ -216,7 +227,6 @@ if df is not None:
     st.dataframe(
         f_df,
         column_config={
-            # The regex handles decoding the URL-encoded fragment back into clean text
             "Away_Link_Display": st.column_config.LinkColumn("Away Team", display_text=r"#(.+)$"),
             "Home_Link_Display": st.column_config.LinkColumn("Home Team", display_text=r"#(.+)$"),
             "Final_Score": st.column_config.TextColumn("Score", help="Winners have a 🏆"),
