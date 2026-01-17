@@ -5,29 +5,26 @@ import os
 import glob
 import re
 import datetime
-import time
 
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
 # --- 1. CSS FOR CLEAN BUTTONS ---
 st.markdown("""
     <style>
-    /* Save Button - Primary Green */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32 !important;
         color: white !important;
         border: none;
     }
-    /* Reset Button - Secondary Gray */
     div.stButton > button[kind="secondary"] {
         background-color: #E0E0E0 !important;
         color: #424242 !important;
-        border: 1px solid #BDBDBD;
     }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. INITIALIZE COOKIE MANAGER ---
+# Using a key ensures the component stays active during script reruns
 cookie_manager = stx.CookieManager(key="mngr")
 
 # --- CONFIGURATION ---
@@ -122,23 +119,15 @@ mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
 df = load_data(file_name, mtime)
 
 if df is not None:
-    # Wait for cookie manager to be ready
+    # Give the manager a moment to load from the browser
     if not cookie_manager:
         st.stop()
 
-    # --- INDICATOR LOGIC (Briefly display status) ---
-    if "ui_msg" in st.session_state:
-        msg, icon = st.session_state["ui_msg"]
-        st.sidebar.success(f"{icon} {msg}")
-        time.sleep(1.2)
-        del st.session_state["ui_msg"]
-        st.rerun()
-
-    # Get saved data from the cookie
+    # --- 3. FETCH SAVED DATA ---
     all_saved_data = cookie_manager.get(cookie="pit_prefs")
     if not isinstance(all_saved_data, dict):
         all_saved_data = {}
-
+    
     season_prefs = all_saved_data.get(selected_display, {})
 
     st.sidebar.header("Filters")
@@ -170,8 +159,16 @@ if df is not None:
     valid_saved_teams = [t for t in saved_teams if t in all_teams]
     selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams, default=valid_saved_teams)
 
-    # --- STEP 6: SAVE & RESET BUTTONS ---
+# --- 6. SAVE & CLEAR BUTTONS ---
     st.sidebar.markdown("---")
+    
+    # Visual Indicator Logic (survives the st.rerun)
+    if "ui_msg" in st.session_state:
+        msg, icon = st.session_state["ui_msg"]
+        st.sidebar.status(msg, state="complete", expanded=False)
+        # Clear it so it doesn't stay forever
+        del st.session_state["ui_msg"]
+
     col1, col2 = st.sidebar.columns(2)
     
     with col1:
@@ -182,9 +179,10 @@ if df is not None:
                 "type_label": selected_type_label,
                 "teams": selected_teams
             }
-            # Commit to browser cookie with 1-year expiry
             expiry = datetime.date.today() + datetime.timedelta(days=365)
             cookie_manager.set("pit_prefs", all_saved_data, expires_at=expiry)
+            
+            # Set the indicator for the next run
             st.session_state["ui_msg"] = ("Settings Saved", "✅")
             st.rerun()
 
@@ -193,10 +191,12 @@ if df is not None:
             if selected_display in all_saved_data:
                 del all_saved_data[selected_display]
                 cookie_manager.set("pit_prefs", all_saved_data)
+                
+                # Set the indicator for the next run
                 st.session_state["ui_msg"] = ("Filters Reset", "↩️")
                 st.rerun()
 
-    # --- FILTERING LOGIC ---
+    # --- 7. FILTERING LOGIC ---
     f_df = df.copy()
     if selected_league != "All": 
         f_df = f_df[f_df['League'] == selected_league]
@@ -207,7 +207,7 @@ if df is not None:
     if selected_teams:
         f_df = f_df[(f_df['Away_Team'].isin(selected_teams)) | (f_df['Home_Team'].isin(selected_teams))]
 
-    # --- DISPLAY GRID ---
+    # --- 8. RESTORED DISPLAY GRID ---
     st.dataframe(
         f_df,
         column_config={
