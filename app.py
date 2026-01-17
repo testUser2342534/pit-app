@@ -8,6 +8,35 @@ import datetime
 
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
+st.markdown("""
+    <style>
+    /* Save Button - Primary Green */
+    div.stButton > button[kind="primary"] {
+        background-color: #2E7D32 !important;
+        color: white !important;
+        border-radius: 4px;
+        border: none;
+    }
+
+    /* Clear Button - Secondary Neutral Gray */
+    div.stButton > button[kind="secondary"] {
+        background-color: #E0E0E0 !important;
+        color: #424242 !important;
+        border-radius: 4px;
+        border: 1px solid #BDBDBD;
+    }
+    
+    /* Hover effects for a tactile feel */
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #1B5E20 !important;
+    }
+    div.stButton > button[kind="secondary"]:hover {
+        background-color: #D5D5D5 !important;
+        border-color: #9E9E9E;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # --- CONFIGURATION ---
 SYNC_FILE = "Winter_2026.csv"
 
@@ -146,7 +175,7 @@ if df is not None:
     valid_saved_teams = [t for t in saved_teams if t in all_teams]
     selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams, default=valid_saved_teams)
 
-    st.sidebar.divider()
+    # st.sidebar.divider()
 
     # --- 6. SAVE & CLEAR BUTTONS ---
     st.sidebar.markdown("---") # Visual separator
