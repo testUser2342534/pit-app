@@ -1,12 +1,10 @@
 import streamlit as st
-import extra_streamlit_components as stx
 import pandas as pd
+import extra_streamlit_components as stx
 import os
 import glob
 import re
 import datetime
-
-ctx = stx.LocalStorageManager()
 
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
@@ -102,8 +100,13 @@ mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
 df = load_data(file_name, mtime)
 
 if df is not None:
-    # --- 1. PERSISTENCE LOGIC (Read from Browser) ---
-    # This checks for a saved dictionary in the user's browser
+    
+    ctx = stx.LocalStorageManager()
+    
+    # Check if the manager is ready (prevents the error you saw)
+    if not ctx:
+        st.stop() 
+
     all_saved_data = ctx.get("pit_prefs") or {}
     # Get the specific settings for the season currently selected in the sidebar
     season_prefs = all_saved_data.get(selected_display, {})
