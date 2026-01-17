@@ -67,7 +67,7 @@ async def run_scraper():
                 
                 print(f"\n  League: {league_name}")
                 await league.hover()
-                await page.wait_for_timeout(600) 
+                await page.wait_for_timeout(8000) 
 
                 # Collect division metadata
                 division_links = league.locator("ul.multi-dropdown-sublevel a[href*='division/']")
@@ -91,7 +91,7 @@ async def run_scraper():
                     
                     try:
                         # Wait for the schedule list to render
-                        await page.wait_for_selector("li.grid", timeout=6000)
+                        await page.wait_for_selector("li.grid", timeout=8000)
                     except:
                         pass # Continue if no games exist
 
@@ -106,7 +106,7 @@ async def run_scraper():
                     if await playoff_label.is_visible():
                         await playoff_label.click()
                         await page.wait_for_load_state("networkidle")
-                        await page.wait_for_timeout(1500) 
+                        await page.wait_for_timeout(8000) 
                         
                         playoff_html = await page.content()
                         p_filename = os.path.join(output_folder, f"{s_id}_{league_name}_{safe_div_name}_PLAYOFFS.html")
@@ -121,14 +121,14 @@ async def run_scraper():
                     try:
                         # Click divisions menu
                         trigger = page.locator(".bw-trigger:has-text('Divisions')")
-                        await trigger.wait_for(state="visible", timeout=5000)
+                        await trigger.wait_for(state="visible", timeout=8000)
                         await trigger.click()
                         
                         # Re-hover the specific league to keep sub-menu open
                         current_league = page.locator(".multi-dropdown-parent").nth(i)
-                        await current_league.wait_for(state="visible", timeout=5000)
+                        await current_league.wait_for(state="visible", timeout=2000)
                         await current_league.hover()
-                        await page.wait_for_timeout(400)
+                        await page.wait_for_timeout(2000)
                     except Exception as e:
                         print(f"      ! Stability Reset Failed: {e}")
                         # If UI fails to reset, attempt to recover by proceeding
