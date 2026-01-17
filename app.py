@@ -3,6 +3,7 @@ import pandas as pd
 import extra_streamlit_components as stx
 import os
 import glob
+import re
 import datetime
 import time
 
@@ -11,14 +12,17 @@ st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 # --- 1. CSS FOR CLEAN BUTTONS ---
 st.markdown("""
     <style>
+    /* Save Button - Primary Green */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32 !important;
         color: white !important;
         border: none;
     }
+    /* Reset Button - Secondary Gray */
     div.stButton > button[kind="secondary"] {
         background-color: #E0E0E0 !important;
         color: #424242 !important;
+        border: 1px solid #BDBDBD;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -30,6 +34,7 @@ cookie_manager = stx.CookieManager(key="mngr")
 SYNC_FILE = "Winter_2026.csv"
 
 def get_season_mapping():
+    """Maps clean season names to their actual CSV filenames."""
     files = glob.glob("data/*.csv")
     mapping = {}
     for f in files:
@@ -44,6 +49,7 @@ def load_data(filename, last_modified):
     if os.path.exists(path):
         df = pd.read_csv(path).copy()
         
+        # --- Cleaning Logic ---
         remove_locs = ["- U of M Complex", "- Garden City Complex"]
         for text in remove_locs:
             df['Location'] = df['Location'].str.replace(text, "", case=False, regex=False)
@@ -118,24 +124,16 @@ if df is not None:
     if not cookie_manager:
         st.stop()
 
-    # --- INDICATOR LOGIC ---
-    if "ui_msg" in st.session_state:
-        msg, icon = st.session_state["ui_msg"]
-        st.sidebar.success(f"{icon} {msg}")
-        time.sleep(1.2)
-        del st.session_state["ui_msg"]
-        st.rerun()
-
-    # --- FETCH COOKIES ---
+    # Get saved data from the cookie
     all_saved_data = cookie_manager.get(cookie="pit_prefs")
     if not isinstance(all_saved_data, dict):
         all_saved_data = {}
-    
+
     season_prefs = all_saved_data.get(selected_display, {})
 
+    # --- RENDER FILTERS ---
     st.sidebar.header("Filters")
     
-    # --- FILTERS ---
     leagues = ["All"] + sorted(df['League'].unique().tolist())
     saved_league = season_prefs.get("league", "All")
     l_idx = leagues.index(saved_league) if saved_league in leagues else 0
@@ -159,7 +157,17 @@ if df is not None:
     valid_saved_teams = [t for t in saved_teams if t in all_teams]
     selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams, default=valid_saved_teams)
 
+    # --- STEP 6: INDICATOR AND BUTTONS ---
     st.sidebar.markdown("---")
+
+    # Placement: Below filters, above buttons
+    if "ui_msg" in st.session_state:
+        msg, icon = st.session_state["ui_msg"]
+        st.sidebar.success(f"{icon} {msg}")
+        time.sleep(1.2)
+        del st.session_state["ui_msg"]
+        st.rerun()
+
     col1, col2 = st.sidebar.columns(2)
     
     with col1:
@@ -174,14 +182,12 @@ if df is not None:
             st.rerun()
 
     with col2:
-        if st.button("Unsave", type="secondary", use_container_width=True):
+        if st.button("Reset", type="secondary", use_container_width=True):
             if selected_display in all_saved_data:
                 del all_saved_data[selected_display]
                 cookie_manager.set("pit_prefs", all_saved_data)
-            # This clears the local variables so the widgets reset to "All" immediately
-            season_prefs = {} 
-            st.session_state["ui_msg"] = ("Saved Filters Cleared", "↩️")
-            st.rerun()
+                st.session_state["ui_msg"] = ("Filters Reset", "↩️")
+                st.rerun()
 
     # --- FILTERING LOGIC ---
     f_df = df.copy()
