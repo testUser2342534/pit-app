@@ -159,7 +159,16 @@ if df is not None:
     valid_saved_teams = [t for t in saved_teams if t in all_teams]
     selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams, default=valid_saved_teams)
 
+    # --- 6. SAVE & CLEAR BUTTONS ---
     st.sidebar.markdown("---")
+    
+    # Visual Indicator Logic (survives the st.rerun)
+    if "ui_msg" in st.session_state:
+        msg, icon = st.session_state["ui_msg"]
+        st.sidebar.status(msg, state="complete", expanded=False)
+        # Clear it so it doesn't stay forever
+        del st.session_state["ui_msg"]
+
     col1, col2 = st.sidebar.columns(2)
     
     with col1:
@@ -170,19 +179,23 @@ if df is not None:
                 "type_label": selected_type_label,
                 "teams": selected_teams
             }
-            # Expires in 1 year
             expiry = datetime.date.today() + datetime.timedelta(days=365)
             cookie_manager.set("pit_prefs", all_saved_data, expires_at=expiry)
-            st.toast(f"Filters saved for {selected_display}!", icon="✅")
+            
+            # Set the indicator for the next run
+            st.session_state["ui_msg"] = ("Settings Saved", "✅")
             st.rerun()
 
     with col2:
-        if st.button("Clear", type="secondary", use_container_width=True):
+        if st.button("Reset", type="secondary", use_container_width=True):
             if selected_display in all_saved_data:
                 del all_saved_data[selected_display]
                 cookie_manager.set("pit_prefs", all_saved_data)
-                st.toast("Filters reset!", icon="🧹")
+                
+                # Set the indicator for the next run
+                st.session_state["ui_msg"] = ("Filters Reset", "↩️")
                 st.rerun()
+
 
     # --- 7. FILTERING LOGIC ---
     f_df = df.copy()
