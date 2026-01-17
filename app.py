@@ -149,10 +149,14 @@ if df is not None:
     st.sidebar.divider()
 
     # --- 6. SAVE & CLEAR BUTTONS ---
+    st.sidebar.markdown("---") # Visual separator
+    
+    # Create two columns for a balanced look
     col1, col2 = st.sidebar.columns(2)
     
     with col1:
-        if st.button("💾 Save Settings", use_container_width=True):
+        # 'primary' makes this button stand out as the main action
+        if st.button("Save Settings", type="primary", use_container_width=True):
             all_saved_data[selected_display] = {
                 "league": selected_league,
                 "division": selected_div,
@@ -164,8 +168,8 @@ if df is not None:
             st.rerun()
 
     with col2:
-        if st.button("🗑️ Clear Selections", use_container_width=True):
-            # Remove the settings for THIS season specifically
+        # 'secondary' (default) keeps this one subtle
+        if st.button("Clear", type="secondary", use_container_width=True):
             if selected_display in all_saved_data:
                 del all_saved_data[selected_display]
                 cookie_manager.set("pit_prefs", all_saved_data, key="clear_cookies")
