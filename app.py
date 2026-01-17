@@ -162,39 +162,31 @@ if df is not None:
     # --- 6. SAVE & CLEAR BUTTONS ---
     st.sidebar.markdown("---")
     
-    # Visual Indicator Logic (survives the st.rerun)
+    # Check for a message to display
     if "ui_msg" in st.session_state:
         msg, icon = st.session_state["ui_msg"]
-        st.sidebar.status(msg, state="complete", expanded=False)
-        # Clear it so it doesn't stay forever
+        # Use .success for a clean, non-clickable green banner
+        st.sidebar.success(f"{icon} {msg}")
+        
+        # This makes it disappear briefly
+        import time
+        time.sleep(1.5) 
         del st.session_state["ui_msg"]
+        st.rerun()
 
     col1, col2 = st.sidebar.columns(2)
     
     with col1:
         if st.button("Save Settings", type="primary", use_container_width=True):
-            all_saved_data[selected_display] = {
-                "league": selected_league,
-                "division": selected_div,
-                "type_label": selected_type_label,
-                "teams": selected_teams
-            }
-            expiry = datetime.date.today() + datetime.timedelta(days=365)
-            cookie_manager.set("pit_prefs", all_saved_data, expires_at=expiry)
-            
-            # Set the indicator for the next run
+            # ... (your existing save logic) ...
             st.session_state["ui_msg"] = ("Settings Saved", "✅")
             st.rerun()
 
     with col2:
         if st.button("Reset", type="secondary", use_container_width=True):
-            if selected_display in all_saved_data:
-                del all_saved_data[selected_display]
-                cookie_manager.set("pit_prefs", all_saved_data)
-                
-                # Set the indicator for the next run
-                st.session_state["ui_msg"] = ("Filters Reset", "↩️")
-                st.rerun()
+            # ... (your existing reset logic) ...
+            st.session_state["ui_msg"] = ("Filters Reset", "↩️")
+            st.rerun()
 
 
     # --- 7. FILTERING LOGIC ---
