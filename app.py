@@ -159,35 +159,29 @@ if df is not None:
     valid_saved_teams = [t for t in saved_teams if t in all_teams]
     selected_teams = st.sidebar.multiselect("Select Team(s):", options=all_teams, default=valid_saved_teams)
 
-    # --- 6. SAVE & CLEAR BUTTONS ---
     st.sidebar.markdown("---")
-    
-    # Check for a message to display
-    if "ui_msg" in st.session_state:
-        msg, icon = st.session_state["ui_msg"]
-        # Use .success for a clean, non-clickable green banner
-        st.sidebar.success(f"{icon} {msg}")
-        
-        # This makes it disappear briefly
-        import time
-        time.sleep(1.5) 
-        del st.session_state["ui_msg"]
-        st.rerun()
-
     col1, col2 = st.sidebar.columns(2)
     
     with col1:
         if st.button("Save Settings", type="primary", use_container_width=True):
-            # ... (your existing save logic) ...
+            all_saved_data[selected_display] = {
+                "league": selected_league, "division": selected_div,
+                "type_label": selected_type_label, "teams": selected_teams
+            }
+            expiry = datetime.date.today() + datetime.timedelta(days=365)
+            cookie_manager.set("pit_prefs", all_saved_data, expires_at=expiry)
             st.session_state["ui_msg"] = ("Settings Saved", "✅")
             st.rerun()
 
     with col2:
         if st.button("Unsave", type="secondary", use_container_width=True):
-            # ... (your existing reset logic) ...
-            st.session_state["ui_msg"] = ("Saved filters have been cleared", "↩️")
+            if selected_display in all_saved_data:
+                del all_saved_data[selected_display]
+                cookie_manager.set("pit_prefs", all_saved_data)
+            # This clears the local variables so the widgets reset to "All" immediately
+            season_prefs = {} 
+            st.session_state["ui_msg"] = ("Saved filters cleared", "↩️")
             st.rerun()
-
 
     # --- 7. FILTERING LOGIC ---
     f_df = df.copy()
