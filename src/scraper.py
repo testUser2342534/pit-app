@@ -12,7 +12,7 @@ async def run_scraper():
     output_folder = os.path.join(base_dir, 'scraped_schedules')
 
     # Environment variables
-    raw_ids = os.getenv("SEASON_IDS", "S26")
+    raw_ids = os.getenv("SEASON_IDS", "")
     season_ids = [s.strip() for s in raw_ids.split(",") if s.strip()]
     
     if os.path.exists(output_folder):
