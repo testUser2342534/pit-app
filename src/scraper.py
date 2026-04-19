@@ -3,12 +3,14 @@ import os
 from playwright.async_api import async_playwright
 import shutil
 
-
 async def run_scraper():
     base_url = "https://pitfootball.com"
     start_url = f"{base_url}/league/pit-football/"
     
-    season_ids = ["W26"]
+    ##season_ids = ["S26"]
+    season_ids = os.getenv("SEASON_IDS", "")
+    ##season_ids = config.SEASON_IDS
+    
     html_dir = 'scraped_schedules'
     if os.path.exists(html_dir):
     # Remove the entire folder and its contents

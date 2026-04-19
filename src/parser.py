@@ -5,7 +5,7 @@ import pytz # Make sure to add this to your requirements.txt
 from datetime import datetime
 from bs4 import BeautifulSoup
 
-def format_pit_date(date_str, year="2026"):
+def format_pit_date(date_str, year=os.getenv("CURR_YEAR", "")):
     """Converts 'Sat Oct 18' + '2025' to '2025-10-18'"""
     try:
         clean_date = " ".join(date_str.split()[1:])
@@ -18,7 +18,8 @@ def parse_schedules():
     # --- PATH LOGIC ---
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     input_folder = os.path.join(base_dir, 'scraped_schedules')
-    output_file = os.path.join(base_dir, 'data', 'Winter_2026.csv')
+    season_name = os.getenv("SEASON_NAME", "")
+    output_file = os.path.join(base_dir, 'data', f"{season_name}.csv")
     
     master_data = []
     domain = "https://pitfootball.com"

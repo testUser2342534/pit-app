@@ -5,6 +5,12 @@ on:
     - cron: '0 18 * * *'
   workflow_dispatch: 
 
+# Define global variables here
+env:
+  SEASON_NAME: "Spring_2026"
+  SEASON_IDS: ["S26"]
+  YEAR: "2026"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,14 +34,28 @@ jobs:
 
       - name: Run Scraper
         run: python src/scraper.py
+        env:
+          SEASON_NAME: ${{ env.SEASON_NAME }}
+          SEASON_IDS: ${{ env.SEASON_IDS }}
+          YEAR: ${{ env.YEAR }}
 
       - name: Run Parser
         run: python src/parser.py
+        env:
+          SEASON_NAME: ${{ env.SEASON_NAME }}
+          SEASON_IDS: ${{ env.SEASON_IDS }}
+          YEAR: ${{ env.YEAR }}
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
-          git add data/Winter_2026.csv
-          git commit -m "Auto-update schedule: $(date)" || echo "No changes to commit"
-          git push
+          
+          # Reference the variable for the file path
+          git add data/${{ env.SEASON_NAME }}.csv
+          
+          if git diff --staged --quiet; then
+            echo "No changes to schedule detected. Skipping push."
+          else
+            git commit -m "Auto-update ${{ env.SEASON_NAME }}: $(date +'%Y-%m-%d %H:%M')"
+            git pu

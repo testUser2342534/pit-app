@@ -6,6 +6,7 @@ import glob
 import re
 import datetime
 
+
 st.set_page_config(page_title="PIT Football Schedule", layout="wide")
 
 # --- 1. CSS FOR CLEAN BUTTONS ---
@@ -27,8 +28,8 @@ st.markdown("""
 # Using a key ensures the component stays active during script reruns
 cookie_manager = stx.CookieManager(key="mngr")
 
-# --- CONFIGURATION ---
-SYNC_FILE = "Winter_2026.csv"
+season_name = os.getenv("SEASON_NAME", "")
+SYNC_FILE = f"{season_name}.csv"
 
 def get_season_mapping():
     """Maps clean season names to their actual CSV filenames."""
