@@ -62,4 +62,6 @@ jobs:
             echo "No changes to schedule detected. Skipping push."
           else
             git commit -m "Auto-update ${{ env.SEASON_NAME }}: $(date +'%Y-%m-%d %H:%M')"
-            git pu
+            git push
+          fi
+          
