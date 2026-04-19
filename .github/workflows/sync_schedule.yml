@@ -5,11 +5,12 @@ on:
     - cron: '0 18 * * *'
   workflow_dispatch: 
 
-# Define global variables here
+
 env:
   SEASON_NAME: "Spring_2026"
   SEASON_IDS: "S26"
   YEAR: "2026"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
