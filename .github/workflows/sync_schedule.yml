@@ -9,7 +9,7 @@ on:
 env:
   SEASON_NAME: "Spring_2026"
   SEASON_IDS: "S26"
-  YEAR: "2026"
+  CURR_YEAR: "2026"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -32,20 +32,23 @@ jobs:
 
       - name: Install Playwright Browsers
         run: playwright install chromium --with-deps
+        
+      - name: Create Data Directory
+        run: mkdir -p data
 
       - name: Run Scraper
         run: python src/scraper.py
         env:
           SEASON_NAME: ${{ env.SEASON_NAME }}
           SEASON_IDS: ${{ env.SEASON_IDS }}
-          YEAR: ${{ env.YEAR }}
+          CURR_YEAR: ${{ env.CURR_YEAR }}
 
       - name: Run Parser
         run: python src/parser.py
         env:
           SEASON_NAME: ${{ env.SEASON_NAME }}
           SEASON_IDS: ${{ env.SEASON_IDS }}
-          YEAR: ${{ env.YEAR }}
+          CURR_YEAR: ${{ env.CURR_YEAR }}
 
       - name: Commit and Push Changes
         run: |
@@ -53,7 +56,7 @@ jobs:
           git config --global user.email "action@github.com"
           
           # Reference the variable for the file path
-          git add data/${{ env.SEASON_NAME }}.csv
+          git add data/*.csv
           
           if git diff --staged --quiet; then
             echo "No changes to schedule detected. Skipping push."
