@@ -1,8 +1,3 @@
-Here is the full, standardized version of src/scraper.py.
-
-I have consolidated the path logic to ensure that the scraped_schedules folder is correctly located at the project root. This ensures that the Parser will find the files exactly where the Scraper saved them, resolving the "No game data extracted" error.
-
-Python
 import asyncio
 import os
 from playwright.async_api import async_playwright
