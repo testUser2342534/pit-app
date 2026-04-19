@@ -8,7 +8,7 @@ on:
 # Define global variables here
 env:
   SEASON_NAME: "Spring_2026"
-  SEASON_IDS: ["S26"]
+  SEASON_IDS: "S26"
   YEAR: "2026"
 
 jobs:

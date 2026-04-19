@@ -8,7 +8,9 @@ async def run_scraper():
     start_url = f"{base_url}/league/pit-football/"
     
     ##season_ids = ["S26"]
-    season_ids = os.getenv("SEASON_IDS", "")
+    raw_ids = os.getenv("SEASON_IDS", "")
+
+    season_ids = raw_ids.split(",")
     ##season_ids = config.SEASON_IDS
     
     html_dir = 'scraped_schedules'
